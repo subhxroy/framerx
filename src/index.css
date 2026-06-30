@@ -1,0 +1,279 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+:root {
+  /* ─────────────────────────────────────────
+     FRAMER EXACT PALETTE
+  ───────────────────────────────────────── */
+
+  /* Canvas */
+  --canvas-bg: #1a1a1a;
+
+  /* App Chrome — real Framer values */
+  --app-bg: #111111;
+  --panel-bg: #1e1e1e;
+  --panel-border: #252525;
+  --toolbar-bg: #181818;
+  --toolbar-height: 44px;
+  --breakpoint-bar-height: 36px;
+
+  /* Sidebar */
+  --left-panel-width: 240px;
+  --right-panel-width: 240px;
+
+  /* Surfaces */
+  --surface-0: #141414;
+  --surface-1: #1e1e1e;
+  --surface-2: #242424;
+  --surface-3: #2a2a2a;
+  --surface-hover: #2e2e2e;
+  --surface-active: #343434;
+
+  /* Text — Framer uses very precise grey ramps */
+  --text-primary: #ececec;
+  --text-secondary: #888888;
+  --text-tertiary: #555555;
+  --text-muted: #3d3d3d;
+  --text-disabled: #2a2a2a;
+  --text-inverse: #111111;
+
+  /* Accent — Framer blue */
+  --accent: #0091ff;
+  --accent-hover: #0080e6;
+  --accent-dim: rgba(0, 145, 255, 0.10);
+  --accent-border: rgba(0, 145, 255, 0.25);
+
+  /* Selection */
+  --selection: #0091ff;
+  --selection-handle: #ffffff;
+  --selection-border: #0091ff;
+
+  /* Borders */
+  --border: #252525;
+  --border-strong: #343434;
+  --border-subtle: #1e1e1e;
+
+  /* Semantic */
+  --error: #ff4444;
+  --success: #1aad60;
+  --warning: #f5a623;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-panel: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-popup: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-tooltip: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-dropdown: 0 12px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06);
+
+  /* Typography */
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+
+  /* Font scale — Framer uses very tight sizing */
+  --text-xs: 10px;
+  --text-sm: 11px;
+  --text-base: 12px;
+  --text-md: 13px;
+  --text-lg: 14px;
+
+  /* Spacing (4px grid) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* Border radius */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+
+  /* Layer rows */
+  --row-height: 26px;
+  --row-indent: 12px;
+
+  /* Transitions */
+  --ease-ui: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 80ms;
+  --duration-normal: 150ms;
+  --duration-slow: 250ms;
+}
+
+/* ─────────────────────────────────────────
+   RESET
+───────────────────────────────────────── */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-ui);
+  background: var(--app-bg);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+input,
+textarea,
+select {
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+}
+
+/* ─────────────────────────────────────────
+   SCROLLBARS — Framer style (near-invisible)
+───────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #383838;
+}
+
+/* ─────────────────────────────────────────
+   MOVEABLE (selection handles)
+───────────────────────────────────────── */
+.moveable-control-box {
+  --moveable-color: #0091ff;
+}
+
+.moveable-control-box .moveable-control {
+  background: #ffffff !important;
+  border: 1.5px solid #0091ff !important;
+  width: 7px !important;
+  height: 7px !important;
+  margin-top: -3.5px !important;
+  margin-left: -3.5px !important;
+  border-radius: 1px !important;
+}
+
+/* Snap / alignment guides — Framer pink */
+.moveable-line.moveable-dashed,
+.moveable-line.moveable-guideline,
+.moveable-line.moveable-bold {
+  background: #ff2d9b !important;
+}
+
+.moveable-snap-digit,
+.moveable-snap-distance {
+  color: #ff2d9b !important;
+  background: rgba(0, 0, 0, 0.85) !important;
+  font-size: 9px !important;
+  padding: 1px 4px !important;
+  border-radius: 3px !important;
+  font-family: var(--font-mono) !important;
+}
+
+/* ─────────────────────────────────────────
+   UTILITIES
+───────────────────────────────────────── */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Framer panel section header */
+.section-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+/* Framer-style pill badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 500;
+  background: var(--surface-3);
+  color: var(--text-secondary);
+}
+
+/* Glass surface */
+.glass {
+  background: rgba(24, 24, 24, 0.85);
+  backdrop-filter: blur(12px) saturate(1.5);
+  -webkit-backdrop-filter: blur(12px) saturate(1.5);
+}
+
+/* Framer input reset */
+.framer-input {
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  outline: none;
+  transition: border-color var(--duration-fast);
+}
+
+.framer-input:hover {
+  border-color: var(--surface-3);
+}
+
+.framer-input:focus {
+  border-color: var(--accent);
+  background: var(--surface-1);
+}
+
+/* Framer button reset */
+.framer-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  transition: background var(--duration-fast), color var(--duration-fast), opacity var(--duration-fast);
+}
+
+.framer-btn:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* ─────────────────────────────────────────
+   CANVAS DOT-GRID PATTERN
+───────────────────────────────────────── */
+.canvas-dot-grid {
+  background-color: var(--canvas-bg);
+  background-image: radial-gradient(circle, #2d2d2d 1px, transparent 1px);
+  background-size: 24px 24px;
+}
