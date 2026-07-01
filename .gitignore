@@ -57,3 +57,12 @@ vite.config.ts.timestamp-*
 # Coverage
 coverage
 .history
+
+# Claude AI local config
+.claude/
+
+# Internal documentation (not for public repo)
+REPO_AUDIT.md
+brain.md
+framer-clone-build-spec.md
+framer-clone-feature-spec.md
