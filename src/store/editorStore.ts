@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type Tool = 'select' | 'frame' | 'text' | 'image' | 'rect' | 'ellipse'
+export type Tool = 'select' | 'frame' | 'text' | 'image' | 'rect' | 'ellipse' | 'hand'
 export type Breakpoint = 'desktop' | 'tablet' | 'mobile'
 export type SizeMode = 'fixed' | 'fill' | 'hug'
 
@@ -62,6 +62,7 @@ export interface Element {
     mobile?: BreakpointOverrides
   }
   interactions?: Interaction[]
+  scrollLinks?: ScrollLink[]
   cmsBinding?: CMSBinding
 
   // Component system
@@ -92,6 +93,14 @@ export interface ComponentVariant {
   id: string
   name: string
   overrides: Record<string, any>
+  triggerOn?: 'hover' | 'tap' | 'focus'
+}
+
+export interface ScrollLink {
+  id: string
+  property: 'opacity' | 'y' | 'x' | 'scale' | 'rotate'
+  scrollRange: [number, number]
+  valueRange: [number, number]
 }
 
 export interface Interaction {
@@ -110,6 +119,7 @@ export interface Interaction {
     easing?: string
     stiffness?: number
     damping?: number
+    mass?: number
   }
   action?: {
     type: 'navigate' | 'overlay'

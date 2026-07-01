@@ -39,6 +39,13 @@ export default function SelectionManager({ containerRef }: Props) {
   const draggedIdRef = useRef<string | null>(null)
   const updateElementRef = useRef(updateElement)
   updateElementRef.current = updateElement
+  const moveElementRef = useRef(moveElement)
+  moveElementRef.current = moveElement
+  // Deferred state: accumulate during interaction, commit on *End — avoids
+  // calling store actions (and thus React re-renders) on every mousemove.
+  const dragEndPos = useRef<Record<string, { x: number; y: number }>>({})
+  const resizeEndState = useRef<Record<string, { width: number; height: number; x?: number; y?: number }>>({})
+  const rotateEndState = useRef<Record<string, number>>({})
   const selectoRef = useRef<Selecto | null>(null)
   const selectoContainerRef = useRef<HTMLDivElement>(null)
 
@@ -152,7 +159,8 @@ export default function SelectionManager({ containerRef }: Props) {
         target.closest &&
         !target.closest('[data-element-id]') &&
         !target.closest('.moveable-control-box') &&
-        !target.closest('.selecto-selection')
+        !target.closest('.selecto-selection') &&
+        !target.closest('[data-selecto-overlay]')
       ) {
         if (containerRef.current && containerRef.current.contains(target)) {
           setSelectedIds([])
@@ -172,6 +180,7 @@ export default function SelectionManager({ containerRef }: Props) {
       <div
         ref={selectoContainerRef}
         className="absolute inset-0"
+        data-selecto-overlay
         style={{ pointerEvents: 'auto', zIndex: 5 }}
       />
 
@@ -259,7 +268,7 @@ export default function SelectionManager({ containerRef }: Props) {
               return
             }
 
-            moveElement(id, left, top)
+            dragEndPos.current[id] = { x: left, y: top }
             const r = (t as HTMLElement).getBoundingClientRect()
             setDimLabel({ x: r.left + r.width / 2, y: r.bottom + 8 / canvas.scale, text: `${Math.round(el.width)} × ${Math.round(el.height)}` })
 
@@ -286,6 +295,7 @@ export default function SelectionManager({ containerRef }: Props) {
               reorderChild(parentId, childId, beforeId)
               reorderTarget.current = null
               setInsertionLine(null)
+              dragEndPos.current = {}
               return
             }
 
@@ -305,10 +315,19 @@ export default function SelectionManager({ containerRef }: Props) {
                   y: childAbs.y - parentAbs.y,
                 })
               }
+              dragEndPos.current = {}
+              return
             }
+
+            // Plain drag: commit all accumulated positions (multi-select).
+            for (const [id, pos] of Object.entries(dragEndPos.current)) {
+              updateElementRef.current(id, { x: pos.x, y: pos.y })
+            }
+            dragEndPos.current = {}
           }}
           onResizeStart={({ target: t }) => {
             pushHistory()
+            resizeEndState.current = {}
             const id = (t as HTMLElement).getAttribute('data-element-id')
             const el = id ? elements[id] : null
             resizeStartCenter.current = el
@@ -328,21 +347,34 @@ export default function SelectionManager({ containerRef }: Props) {
               if (delta[0]) changes.x = el.x + (direction[0] < 0 ? el.width - width : 0)
               if (delta[1]) changes.y = el.y + (direction[1] < 0 ? el.height - height : 0)
             }
-            updateElement(id, changes)
+            resizeEndState.current[id] = changes
             const r = (t as HTMLElement).getBoundingClientRect()
             setDimLabel({ x: r.left + r.width / 2, y: r.bottom + 8 / canvas.scale, text: `${Math.round(width)} × ${Math.round(height)}` })
           }}
-          onResizeEnd={() => { setDimLabel(null); resizeStartCenter.current = null }}
-          onRotateStart={() => pushHistory()}
+          onResizeEnd={() => {
+            setDimLabel(null)
+            resizeStartCenter.current = null
+            for (const [id, changes] of Object.entries(resizeEndState.current)) {
+              updateElementRef.current(id, changes)
+            }
+            resizeEndState.current = {}
+          }}
+          onRotateStart={() => { pushHistory(); rotateEndState.current = {} }}
           onRotate={({ target: t, rotation }) => {
             const id = (t as HTMLElement).getAttribute('data-element-id')
             if (id) {
-              updateElement(id, { rotation })
+              rotateEndState.current[id] = rotation
               const r = (t as HTMLElement).getBoundingClientRect()
               setDimLabel({ x: r.left + r.width / 2, y: r.bottom + 8 / canvas.scale, text: `${Math.round(rotation)}°` })
             }
           }}
-          onRotateEnd={() => setDimLabel(null)}
+          onRotateEnd={() => {
+            setDimLabel(null)
+            for (const [id, rotation] of Object.entries(rotateEndState.current)) {
+              updateElementRef.current(id, { rotation })
+            }
+            rotateEndState.current = {}
+          }}
           controlPadding={0}
           controlWidth={8}
           controlHeight={8}

@@ -307,6 +307,50 @@ export default function AnimationSection({ elementId }: Props) {
                 </>
               ) : (
                 <>
+                  <div className="flex items-center gap-1 mb-1.5 w-full" style={{ gridColumn: '1 / -1' }}>
+                    {[
+                      { label: 'Snappy', s: 500, d: 30, m: 1 },
+                      { label: 'Smooth', s: 200, d: 25, m: 1 },
+                      { label: 'Bouncy', s: 400, d: 12, m: 1 },
+                    ].map((preset) => {
+                      const isActive =
+                        int.transition?.stiffness === preset.s &&
+                        int.transition?.damping === preset.d &&
+                        (int.transition?.mass ?? 1) === preset.m
+                      return (
+                        <button
+                          key={preset.label}
+                          style={{
+                            flex: 1, height: '20px', fontSize: '9px',
+                            fontWeight: isActive ? 600 : 400,
+                            background: isActive ? 'var(--accent)' : 'var(--surface-2)',
+                            color: isActive ? '#fff' : 'var(--text-secondary)',
+                            border: 'none', borderRadius: 'var(--radius-sm)',
+                            cursor: 'pointer', fontFamily: 'inherit',
+                            transition: 'background 0.1s, color 0.1s',
+                          }}
+                          onMouseEnter={e => {
+                            if (!isActive) e.currentTarget.style.background = 'var(--surface-hover)'
+                          }}
+                          onMouseLeave={e => {
+                            if (!isActive) e.currentTarget.style.background = 'var(--surface-2)'
+                          }}
+                          onClick={() =>
+                            updateInteraction(int.id, {
+                              transition: {
+                                type: 'spring',
+                                stiffness: preset.s,
+                                damping: preset.d,
+                                mass: preset.m,
+                              },
+                            } as Partial<Interaction>)
+                          }
+                        >
+                          {preset.label}
+                        </button>
+                      )
+                    })}
+                  </div>
                   <input
                     type="number"
                     style={{ 
@@ -322,12 +366,12 @@ export default function AnimationSection({ elementId }: Props) {
                       textAlign: 'center',
                       fontFamily: 'inherit',
                     }}
-                    value={int.transition?.stiffness ?? 100}
+                    value={int.transition?.stiffness ?? 300}
                     placeholder="Stiff"
                     title="Stiffness"
                     onChange={(e) =>
                       updateInteraction(int.id, {
-                        transition: { ...int.transition, type: 'spring', stiffness: parseFloat(e.target.value) || 100 } as any,
+                        transition: { ...int.transition, type: 'spring', stiffness: parseFloat(e.target.value) || 300 } as any,
                       } as Partial<Interaction>)
                     }
                   />
@@ -346,12 +390,37 @@ export default function AnimationSection({ elementId }: Props) {
                       textAlign: 'center',
                       fontFamily: 'inherit',
                     }}
-                    value={int.transition?.damping ?? 10}
+                    value={int.transition?.damping ?? 25}
                     placeholder="Damp"
                     title="Damping"
                     onChange={(e) =>
                       updateInteraction(int.id, {
-                        transition: { ...int.transition, type: 'spring', damping: parseFloat(e.target.value) || 10 } as any,
+                        transition: { ...int.transition, type: 'spring', damping: parseFloat(e.target.value) || 25 } as any,
+                      } as Partial<Interaction>)
+                    }
+                  />
+                  <input
+                    type="number"
+                    style={{ 
+                      width: '38px',
+                      height: '22px',
+                      background: 'var(--surface-2)', 
+                      color: 'var(--text-primary)', 
+                      border: '1px solid var(--border)', 
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '10px',
+                      padding: '0 4px',
+                      outline: 'none',
+                      textAlign: 'center',
+                      fontFamily: 'inherit',
+                    }}
+                    value={int.transition?.mass ?? 1}
+                    step={0.1}
+                    placeholder="Mass"
+                    title="Mass"
+                    onChange={(e) =>
+                      updateInteraction(int.id, {
+                        transition: { ...int.transition, type: 'spring', mass: parseFloat(e.target.value) || 1 } as any,
                       } as Partial<Interaction>)
                     }
                   />

@@ -168,13 +168,24 @@ export default function Canvas() {
 
   const handleWheel = useCallback(
     (e: WheelEvent) => {
+      const store = useEditorStore.getState()
+
+      // In preview mode, allow native scrolling — don't intercept.
+      if (store.previewMode) return
+
       e.preventDefault()
-      const c = useEditorStore.getState().canvas
+      const c = store.canvas
 
       // Ctrl/Cmd + scroll (or trackpad pinch) = zoom centered on cursor
       if (e.ctrlKey || e.metaKey) {
         const factor = e.deltaY < 0 ? 1.08 : 0.925
         zoomToScaleAtPoint(c.scale * factor, e.clientX, e.clientY)
+        return
+      }
+
+      // Shift + scroll → horizontal pan (swap axes)
+      if (e.shiftKey) {
+        schedulePan(-e.deltaY, 0)
         return
       }
 
@@ -198,6 +209,11 @@ export default function Canvas() {
       if (e.code === 'KeyI') setActiveTool('image')
       if (e.code === 'KeyR') setActiveTool('rect')
       if (e.code === 'KeyO') setActiveTool('ellipse')
+      if (e.code === 'KeyH') {
+        e.preventDefault()
+        const current = useEditorStore.getState().activeTool
+        setActiveTool(current === 'hand' ? 'select' : 'hand')
+      }
 
       // Shift+1: zoom to fit all
       if (e.code === 'Digit1' && e.shiftKey) {
@@ -318,6 +334,16 @@ export default function Canvas() {
 
   const handleCanvasPointerDown = useCallback(
     (e: React.PointerEvent) => {
+      if (previewMode) return
+
+      // Hand tool → pan
+      if (e.button === 0 && activeTool === 'hand') {
+        isPanning.current = true
+        lastPos.current = { x: e.clientX, y: e.clientY }
+        e.preventDefault()
+        return
+      }
+
       if (
         e.button === 1 ||
         (e.button === 0 && isSpaceDown.current)
@@ -543,14 +569,17 @@ export default function Canvas() {
   return (
     <div
       ref={containerRef}
-      className="relative flex-1 overflow-hidden"
+      className="relative flex-1"
       style={{
+        overflow: previewMode ? 'auto' : 'hidden',
         background: 'var(--canvas-bg)',
-        cursor: activeTool !== 'select'
-          ? 'crosshair'
-          : isPanning.current ? 'grabbing'
-          : isSpaceDown.current ? 'grab'
-          : 'default',
+        cursor: activeTool === 'hand'
+          ? (isPanning.current ? 'grabbing' : 'grab')
+          : activeTool !== 'select'
+            ? 'crosshair'
+            : isPanning.current ? 'grabbing'
+            : isSpaceDown.current ? 'grab'
+            : 'default',
         outline: isDragOver ? '2px dashed var(--accent)' : 'none',
         outlineOffset: -2,
       }}
@@ -576,8 +605,10 @@ export default function Canvas() {
       )}
 
       <div
-        className="absolute"
-        style={{
+        className={previewMode ? '' : 'absolute'}
+        style={previewMode ? {
+          minHeight: '100%',
+        } : {
           transform: `translate(${canvas.x}px, ${canvas.y}px) scale(${canvas.scale})`,
           transformOrigin: '0 0',
           ...(activeBreakpoint !== 'desktop'

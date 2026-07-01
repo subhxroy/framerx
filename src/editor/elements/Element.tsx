@@ -174,6 +174,30 @@ function ElementRenderer({ id, containerRef, flow = false }: Props) {
     }
   }
 
+  // Build variant triggers for instances whose master has triggerOn variants
+  const variantTriggers = useMemo(() => {
+    if (!isInstance || !previewMode || !master?.variants) return []
+    const results: { trigger: 'hover' | 'tap'; target: Record<string, any> }[] = []
+    for (const variant of master.variants) {
+      if (!variant.triggerOn || variant.triggerOn === 'focus') continue
+      const target: Record<string, any> = {}
+      for (const [field, value] of Object.entries(variant.overrides)) {
+        if (value === '' || value === undefined || value === null) continue
+        if (field.startsWith('style.')) {
+          target[field.slice(6)] = value
+        } else if (['opacity', 'scale', 'rotate'].includes(field)) {
+          target[field] = value
+        } else if (field === 'style' && typeof value === 'object') {
+          Object.assign(target, value)
+        }
+      }
+      if (Object.keys(target).length > 0) {
+        results.push({ trigger: variant.triggerOn, target })
+      }
+    }
+    return results
+  }, [master?.variants, isInstance, previewMode])
+
   // Absolutely-positioned children (non-auto-layout parents only)
   const children = !isAutoLayoutContainer && childRenderers && (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
@@ -269,9 +293,14 @@ function ElementRenderer({ id, containerRef, flow = false }: Props) {
       )}
       <AnimatedElement
         interactions={previewMode ? element?.interactions : undefined}
+        scrollLinks={previewMode ? element?.scrollLinks : undefined}
+        variantTriggers={variantTriggers}
         style={style}
         className={flow ? 'relative' : 'absolute'}
         dataAttrs={dataAttrs}
+        previewMode={previewMode}
+        isInAutoLayout={flow}
+        isAutoLayoutFrame={isAutoLayoutContainer}
       >
         {renderContent()}
         {children}

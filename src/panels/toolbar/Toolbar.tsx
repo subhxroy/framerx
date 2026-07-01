@@ -161,16 +161,18 @@ export default function Toolbar({ saveStatus = 'saved' }: Props) {
 
           {/* Hand / pan tool */}
           <button
+            onClick={() => setActiveTool(activeTool === 'hand' ? 'select' : 'hand')}
             style={{
               width: 28, height: 28,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               borderRadius: 5, border: 'none', cursor: 'pointer',
-              background: 'transparent', color: '#444',
+              background: activeTool === 'hand' ? 'rgba(255,255,255,0.08)' : 'transparent',
+              color: activeTool === 'hand' ? '#e8e8e8' : '#444',
               transition: 'background 80ms, color 80ms',
             }}
-            title="Pan (Space)"
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#999' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#444' }}
+            title="Pan (H)"
+            onMouseEnter={e => { e.currentTarget.style.background = activeTool === 'hand' ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#999' }}
+            onMouseLeave={e => { e.currentTarget.style.background = activeTool === 'hand' ? 'rgba(255,255,255,0.08)' : 'transparent'; e.currentTarget.style.color = activeTool === 'hand' ? '#e8e8e8' : '#444' }}
           >
             <Hand size={15} strokeWidth={1.5} />
           </button>
