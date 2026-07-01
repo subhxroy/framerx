@@ -158,9 +158,23 @@ All animations execute in Preview mode using the Motion library.
 
 ### Export & Publishing
 
-- **HTML/CSS Export** — Single-file HTML with embedded `<style>`, CSS flexbox for auto-layout, media queries for breakpoints, CSS keyframe animations
+- **HTML/CSS Export** — Single-file HTML with embedded `<style>`, CSS flexbox for auto-layout, media queries for breakpoints, CSS keyframe animations. Generated HTML includes SEO meta tags (description, Open Graph, Twitter Cards).
 - **React Export** — React + TypeScript component with inline styles
 - **Supabase Deploy** — Upload generated HTML to Supabase Storage with public URL
+
+### Search Engine Optimization (SEO & AEO)
+
+| Feature | Description |
+|---------|-------------|
+| **Base meta tags** | `index.html` includes description, keywords, author, robots, canonical, theme-color, PWA tags |
+| **Open Graph** | `og:title`, `og:description`, `og:image`, `og:url`, `og:type`, `og:site_name`, `og:locale` |
+| **Twitter Cards** | `twitter:card` (summary_large_image), `twitter:title`, `twitter:description`, `twitter:image`, `twitter:creator` |
+| **Per-page SEO** | `SEO.tsx` component manages per-route `<title>`, description, canonical, OG/Twitter overrides, noIndex |
+| **JSON-LD Structured Data** | `StructuredData.tsx` provides helpers for WebApplication, Organization, FAQPage, BreadcrumbList schemas |
+| **robots.txt** | Allows indexing of public pages, disallows `/editor/` and `/auth` |
+| **sitemap.xml** | Lists public pages with priority and change frequency |
+| **Exported HTML SEO** | Generated pages include description, Open Graph, and Twitter Card meta tags |
+| **AEO (Answer Engine Optimization)** | FAQPage schema for voice search and featured snippet eligibility |
 
 ### Auth & Dashboard
 
@@ -212,6 +226,7 @@ All animations execute in Preview mode using the Motion library.
 | **Selecto** | Marquee selection engine |
 | **Motion 12** | Animation runtime for preview mode |
 | **Lucide React** | Icon library |
+| **react-helmet-async** | Per-page SEO meta tag management |
 
 ### Backend
 
@@ -250,7 +265,9 @@ framer/
 ├── REPO_AUDIT.md
 ├── public/
 │   ├── favicon.svg
-│   └── icons.svg
+│   ├── icons.svg
+│   ├── robots.txt
+│   └── sitemap.xml
 ├── dist/                     # Build output
 └── src/
     ├── main.tsx              # React entry point
@@ -288,7 +305,10 @@ framer/
     ├── components/
     │   ├── CommandPalette.tsx
     │   ├── ErrorBoundary.tsx
-    │   └── ProtectedRoute.tsx
+    │   ├── ProtectedRoute.tsx
+    │   ├── SEO.tsx
+    │   ├── StructuredData.tsx
+    │   └── ToastHost.tsx
     ├── hooks/
     │   ├── useKeyboard.ts
     │   ├── useClipboard.ts
@@ -431,6 +451,7 @@ The project uses Supabase (PostgreSQL) with the following tables:
 |----------|----------|-------------|
 | `VITE_SUPABASE_URL` | No | Your Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | No | Your Supabase anonymous API key |
+| `VITE_OPENROUTER_API_KEY` | No | OpenRouter API key for AI Agent panel |
 
 Without these variables, the app uses localStorage for all persistence.
 
@@ -449,6 +470,45 @@ Output in `dist/`. Serve with any static file server:
 ```bash
 npm run preview
 ```
+
+### Production Server
+
+Start the built app with the built-in Node.js production server (auto-serves `dist/` with SPA fallback):
+
+```bash
+npm start
+```
+
+The server runs on `http://0.0.0.0:3000` (configurable via `PORT` env).
+
+### Netlify
+
+The project includes a `netlify.toml` for one-click deployment:
+
+1. Push to GitHub
+2. In Netlify, connect repo → build command auto-detected → deploy
+3. SPA routing, security headers, and asset caching are pre-configured
+
+| Setting | Value |
+|---------|-------|
+| Build command | `npm run build` |
+| Publish directory | `dist` |
+| SPA redirects | `/*` → `/index.html` (200) |
+
+### Railway
+
+The project includes a `railway.json` for one-click deployment:
+
+1. Push to GitHub
+2. In Railway, connect repo → build/start auto-detected → deploy
+3. The production server handles SPA fallback and static file serving
+
+| Setting | Value |
+|---------|-------|
+| Build command | `npm run build` |
+| Start command | `node server.js` |
+| Health check | `GET /` |
+| Port | `3000` (set via `PORT` env) |
 
 ### Supabase Storage Deploy
 

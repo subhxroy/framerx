@@ -46,10 +46,12 @@ function escapeHtml(s: string): string {
 export function exportToHTML(
   elements: Record<string, Element>,
   rootIds: string[],
-  options?: { includeAnimations?: boolean; title?: string }
+  options?: { includeAnimations?: boolean; title?: string; description?: string; ogImage?: string }
 ): string {
   const css = generateCSS(elements, rootIds, options?.includeAnimations !== false)
   const title = options?.title || 'Exported Page'
+  const description = options?.description || ''
+  const ogImage = options?.ogImage || ''
 
   const bodyContent = rootIds
     .map((id) => {
@@ -66,6 +68,16 @@ export function exportToHTML(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(title)}</title>
+  <meta name="description" content="${escapeHtml(description || title)}" />
+  <meta name="robots" content="index, follow" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="${escapeHtml(title)}" />
+  <meta property="og:description" content="${escapeHtml(description || title)}" />
+  ${ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />` : ''}
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${escapeHtml(title)}" />
+  <meta name="twitter:description" content="${escapeHtml(description || title)}" />
+  ${ogImage ? `<meta name="twitter:image" content="${escapeHtml(ogImage)}" />` : ''}
   <style>
 * {
   margin: 0;
@@ -110,11 +122,14 @@ ${bodyContent}
 export function exportSingleElementHTML(
   element: Element,
   elements: Record<string, Element>,
+  options?: { description?: string; ogImage?: string }
 ): string {
   const rootIds = [element.id]
   const css = generateCSS(elements, rootIds)
   const bodyContent = renderElementHTML(element, elements)
   const mediaQueries = [css.tabletMedia, css.mobileMedia].filter(Boolean).join('\n\n')
+  const description = options?.description || element.name
+  const ogImage = options?.ogImage || ''
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -122,6 +137,15 @@ export function exportSingleElementHTML(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(element.name)}</title>
+  <meta name="description" content="${escapeHtml(description)}" />
+  <meta name="robots" content="index, follow" />
+  <meta property="og:title" content="${escapeHtml(element.name)}" />
+  <meta property="og:description" content="${escapeHtml(description)}" />
+  ${ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />` : ''}
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${escapeHtml(element.name)}" />
+  <meta name="twitter:description" content="${escapeHtml(description)}" />
+  ${ogImage ? `<meta name="twitter:image" content="${escapeHtml(ogImage)}" />` : ''}
   <style>
 * {
   margin: 0;

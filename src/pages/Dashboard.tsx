@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore, signOut } from '@/store/authStore'
 import { useProjectStore } from '@/store/projectStore'
 import { createStarterProjectData } from '@/lib/defaultProject'
+import SEO from '@/components/SEO'
 import {
   Plus, MoreHorizontal, Copy, Trash2, X, Search,
   Monitor, Tablet, Smartphone, LogOut,
@@ -42,6 +43,7 @@ export default function Dashboard() {
   const [showUserMenu,    setShowUserMenu]    = useState(false)
   const [renamingProject, setRenamingProject] = useState<string | null>(null)
   const [renameValue,     setRenameValue]     = useState('')
+  const [starredIds,      setStarredIds]      = useState<string[]>([])
 
   const menuRef    = useRef<HTMLDivElement>(null)
   const userMenuRef = useRef<HTMLDivElement>(null)
@@ -57,6 +59,30 @@ export default function Dashboard() {
 
   // Load projects from Supabase when dashboard mounts
   useEffect(() => { loadProjects() }, [])
+
+  useEffect(() => {
+    const key = `framer_starred_projects_${user?.uid || 'local'}`
+    try {
+      const raw = localStorage.getItem(key)
+      setStarredIds(raw ? JSON.parse(raw) : [])
+    } catch {
+      setStarredIds([])
+    }
+  }, [user?.uid])
+
+  const persistStarred = useCallback((ids: string[]) => {
+    const key = `framer_starred_projects_${user?.uid || 'local'}`
+    setStarredIds(ids)
+    try { localStorage.setItem(key, JSON.stringify(ids)) } catch { /* ignore */ }
+  }, [user?.uid])
+
+  const toggleStar = useCallback((id: string) => {
+    persistStarred(
+      starredIds.includes(id)
+        ? starredIds.filter(starredId => starredId !== id)
+        : [...starredIds, id]
+    )
+  }, [persistStarred, starredIds])
 
   const handleCreate = useCallback(async () => {
     const id = await createProject(newName || 'Untitled', canvasSize.width, canvasSize.height)
@@ -85,7 +111,11 @@ export default function Dashboard() {
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
-  const filteredProjects = projectList.filter(p =>
+  const visibleProjects = activeTab === 'starred'
+    ? projectList.filter(p => starredIds.includes(p.id))
+    : projectList
+
+  const filteredProjects = visibleProjects.filter(p =>
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
@@ -97,12 +127,18 @@ export default function Dashboard() {
     .slice(0, 2)
 
   return (
-    <div style={{
-      display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden',
-      background: '#111111',
-      fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-      color: '#ececec',
-    }}>
+    <>
+      <SEO
+        title="Dashboard"
+        description="Manage your Framer projects. Create, duplicate, and organize your website designs."
+        canonical="https://framer.app/"
+      />
+      <div style={{
+        display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden',
+        background: '#111111',
+        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+        color: '#ececec',
+      }}>
 
       {/* ─────────── LEFT SIDEBAR ─────────── */}
       <aside style={{
@@ -119,7 +155,7 @@ export default function Dashboard() {
             width: '100%', padding: '5px 6px',
             background: 'transparent', border: 'none', cursor: 'pointer',
             borderRadius: 6, textAlign: 'left',
-            transition: 'background 80ms',
+            transition: 'background var(--duration-instant)',
           }}
             onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -164,7 +200,7 @@ export default function Dashboard() {
               color: activeTab === item.id ? '#e0e0e0' : '#4a4a4a',
               cursor: 'pointer', fontSize: 12, fontWeight: activeTab === item.id ? 500 : 400,
               width: '100%', textAlign: 'left',
-              transition: 'background 80ms, color 80ms',
+              transition: 'background var(--duration-instant), color var(--duration-instant)',
               fontFamily: 'inherit',
             }}
               onMouseEnter={e => { if (activeTab !== item.id) { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = '#888' } }}
@@ -188,7 +224,7 @@ export default function Dashboard() {
             background: activeTab === 'settings' ? 'rgba(255,255,255,0.06)' : 'transparent',
             color: activeTab === 'settings' ? '#e0e0e0' : '#3a3a3a',
             cursor: 'pointer', fontSize: 12, width: '100%', textAlign: 'left',
-            transition: 'background 80ms, color 80ms', fontFamily: 'inherit',
+            transition: 'background var(--duration-instant), color var(--duration-instant)', fontFamily: 'inherit',
           }}
             onMouseEnter={e => { if (activeTab !== 'settings') { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = '#888' } }}
             onMouseLeave={e => { if (activeTab !== 'settings') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#3a3a3a' } }}
@@ -205,7 +241,7 @@ export default function Dashboard() {
                 padding: '5px 6px', borderRadius: 5, border: 'none',
                 background: 'transparent', cursor: 'pointer',
                 width: '100%', textAlign: 'left',
-                transition: 'background 80ms', fontFamily: 'inherit',
+                transition: 'background var(--duration-instant)', fontFamily: 'inherit',
               }}
               onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -298,7 +334,7 @@ export default function Dashboard() {
                     paddingLeft: 28, paddingRight: 10, height: 28, borderRadius: 6,
                     background: '#1a1a1a', border: '1px solid #212121', color: '#e0e0e0',
                     fontSize: 11, outline: 'none', width: 180, fontFamily: 'inherit',
-                    transition: 'border-color 80ms, width 200ms',
+                    transition: 'border-color var(--duration-instant), width var(--duration-slow)',
                   }}
                   onFocus={e => { e.target.style.borderColor = '#333'; e.target.style.width = '220px' }}
                   onBlur={e => { e.target.style.borderColor = '#212121'; e.target.style.width = '180px' }}
@@ -315,7 +351,7 @@ export default function Dashboard() {
                   padding: '0 12px', height: 28, borderRadius: 6,
                   background: '#0091ff', color: '#fff', border: 'none',
                   cursor: 'pointer', fontSize: 11, fontWeight: 600,
-                  transition: 'background 80ms',
+                  transition: 'background var(--duration-instant)',
                   boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
                 }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#0080e6')}
@@ -398,13 +434,13 @@ export default function Dashboard() {
               </div>
               <div style={{ textAlign: 'center' }}>
                 <h2 style={{ fontSize: 14, fontWeight: 600, color: '#3a3a3a', margin: '0 0 6px' }}>
-                  {searchQuery ? 'No projects found' : 'No projects yet'}
+                  {searchQuery ? 'No projects found' : activeTab === 'starred' ? 'No starred projects' : 'No projects yet'}
                 </h2>
                 <p style={{ fontSize: 11, color: '#2a2a2a', margin: 0 }}>
-                  {searchQuery ? 'Try a different search term' : 'Create your first project'}
+                  {searchQuery ? 'Try a different search term' : activeTab === 'starred' ? 'Star projects to keep them close' : 'Create your first project'}
                 </p>
               </div>
-              {!searchQuery && (
+              {!searchQuery && activeTab !== 'starred' && (
                 <button
                   onClick={() => setShowNewModal(true)}
                   style={{
@@ -425,13 +461,15 @@ export default function Dashboard() {
               gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
               gap: 12,
             }}>
-              {filteredProjects.map((p, i) => (
+              {filteredProjects.map((p, i) => {
+                const isStarred = starredIds.includes(p.id)
+                return (
                 <div
                   key={p.id}
                   style={{
                     borderRadius: 8, overflow: 'visible',
                     cursor: 'pointer', position: 'relative',
-                    transition: 'transform 100ms',
+                    transition: 'transform var(--duration-normal)',
                   }}
                   onClick={() => handleOpen(p.id)}
                   onMouseEnter={() => setHoveredProject(p.id)}
@@ -443,7 +481,7 @@ export default function Dashboard() {
                     background: THUMB_GRADIENTS[i % THUMB_GRADIENTS.length],
                     border: '1px solid #252525',
                     position: 'relative', overflow: 'hidden',
-                    transition: 'border-color 100ms',
+                    transition: 'border-color var(--duration-normal)',
                     borderColor: hoveredProject === p.id ? '#353535' : '#252525',
                   }}>
                     {/* Fake browser chrome */}
@@ -473,6 +511,34 @@ export default function Dashboard() {
                         <div style={{ width: 40, height: 14, background: 'rgba(0,145,255,0.4)', borderRadius: 3 }} />
                       </div>
                     </div>
+
+                    <button
+                      onClick={e => { e.stopPropagation(); toggleStar(p.id) }}
+                      title={isStarred ? 'Unstar project' : 'Star project'}
+                      style={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        width: 26,
+                        height: 26,
+                        borderRadius: 6,
+                        border: '1px solid rgba(255,255,255,0.10)',
+                        background: isStarred ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.28)',
+                        color: isStarred ? '#ffd36a' : '#ffffff',
+                        opacity: isStarred || hoveredProject === p.id ? 1 : 0,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backdropFilter: 'blur(8px)',
+                        transition: 'opacity var(--duration-instant), background var(--duration-instant), transform var(--duration-instant)',
+                        zIndex: 2,
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = isStarred ? 'rgba(255,211,106,0.22)' : 'rgba(255,255,255,0.16)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = isStarred ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.28)' }}
+                    >
+                      <Star size={13} fill={isStarred ? 'currentColor' : 'none'} strokeWidth={1.7} />
+                    </button>
 
                     {/* Hover overlay — "Edit" button */}
                     {hoveredProject === p.id && (
@@ -547,7 +613,7 @@ export default function Dashboard() {
                           border: 'none', cursor: 'pointer', color: '#3a3a3a',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           opacity: hoveredProject === p.id || menuProject === p.id ? 1 : 0,
-                          transition: 'opacity 80ms, background 80ms, color 80ms',
+                          transition: 'opacity var(--duration-instant), background var(--duration-instant), color var(--duration-instant)',
                         }}
                         onMouseEnter={e => { e.currentTarget.style.color = '#888'; e.currentTarget.style.background = '#252525' }}
                         onMouseLeave={e => { e.currentTarget.style.color = '#3a3a3a'; if (menuProject !== p.id) e.currentTarget.style.background = 'transparent' }}
@@ -574,7 +640,7 @@ export default function Dashboard() {
                               padding: '6px 10px', width: '100%', background: 'none',
                               border: 'none', color: '#888', cursor: 'pointer',
                               fontSize: 11, textAlign: 'left', fontFamily: 'inherit',
-                              borderRadius: 5, transition: 'background 60ms',
+                              borderRadius: 5, transition: 'background var(--duration-instant)',
                             }}
                               onMouseEnter={e => (e.currentTarget.style.background = '#252525')}
                               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -588,7 +654,7 @@ export default function Dashboard() {
                             padding: '6px 10px', width: '100%', background: 'none',
                             border: 'none', color: '#ff4444', cursor: 'pointer',
                             fontSize: 11, textAlign: 'left', fontFamily: 'inherit',
-                            borderRadius: 5, transition: 'background 60ms',
+                            borderRadius: 5, transition: 'background var(--duration-instant)',
                           }}
                             onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,68,68,0.08)')}
                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -600,7 +666,8 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
@@ -630,7 +697,7 @@ export default function Dashboard() {
                 style={{
                   background: 'none', border: 'none', cursor: 'pointer',
                   color: '#3a3a3a', padding: 4, borderRadius: 4,
-                  display: 'flex', transition: 'color 80ms',
+                  display: 'flex', transition: 'color var(--duration-instant)',
                 }}
                 onMouseEnter={e => (e.currentTarget.style.color = '#888')}
                 onMouseLeave={e => (e.currentTarget.style.color = '#3a3a3a')}
@@ -655,7 +722,7 @@ export default function Dashboard() {
                 width: '100%', padding: '8px 10px', borderRadius: 6,
                 background: '#212121', border: '1px solid #2a2a2a', color: '#e0e0e0',
                 fontSize: 12, outline: 'none', marginBottom: 18, fontFamily: 'inherit',
-                boxSizing: 'border-box', transition: 'border-color 80ms',
+                boxSizing: 'border-box', transition: 'border-color var(--duration-instant)',
               }}
               onFocus={e => (e.target.style.borderColor = '#0091ff')}
               onBlur={e => (e.target.style.borderColor = '#2a2a2a')}
@@ -678,7 +745,7 @@ export default function Dashboard() {
                     background: canvasSize.label === s.label ? 'rgba(0,145,255,0.10)' : '#1e1e1e',
                     border: `1px solid ${canvasSize.label === s.label ? '#0091ff' : '#252525'}`,
                     color: canvasSize.label === s.label ? '#0091ff' : '#666',
-                    cursor: 'pointer', transition: 'all 100ms',
+                    cursor: 'pointer', transition: 'all var(--duration-normal)',
                     fontFamily: 'inherit',
                   }}
                 >
@@ -700,7 +767,7 @@ export default function Dashboard() {
                 width: '100%', padding: '9px', borderRadius: 6,
                 background: '#0091ff', color: '#fff', border: 'none',
                 cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                fontFamily: 'inherit', transition: 'background 80ms',
+                fontFamily: 'inherit', transition: 'background var(--duration-instant)',
               }}
               onMouseEnter={e => (e.currentTarget.style.background = '#0080e6')}
               onMouseLeave={e => (e.currentTarget.style.background = '#0091ff')}
@@ -711,5 +778,6 @@ export default function Dashboard() {
         </div>
       )}
     </div>
+    </>
   )
 }

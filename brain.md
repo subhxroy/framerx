@@ -25,6 +25,7 @@
 | **Icons** | lucide-react 1.22 |
 | **Backend** | Supabase (PostgreSQL + Auth + Storage) w/ localStorage fallback |
 | **Linting** | oxlint 1.69 |
+| **SEO** | react-helmet-async (per-page meta tags, JSON-LD structured data) |
 | **Path alias** | `@/` → `./src` |
 
 ---
@@ -43,10 +44,12 @@ framer/
 │
 ├── public/
 │   ├── favicon.svg
-│   └── icons.svg
+│   ├── icons.svg
+│   ├── robots.txt          # Search engine crawl directives
+│   └── sitemap.xml         # XML sitemap for indexing
 │
 ├── src/
-│   ├── main.tsx            # React entry → <App />
+│   ├── main.tsx            # React entry → <HelmetProvider><App />
 │   ├── index.css           # Global styles, CSS variables, Tailwind
 │   │
 │   ├── app/
@@ -115,6 +118,17 @@ framer/
 │   │   │   └── ContextMenu.tsx       # Right-click context menu
 │   │   └── publish/
 │   │       └── PublishModal.tsx      # Export HTML/React + Supabase deploy
+│   │
+│   ├── components/
+│   │   ├── CommandPalette.tsx    # Cmd+K command palette
+│   │   ├── ErrorBoundary.tsx     # Error boundary wrapper
+│   │   ├── Popover.tsx           # Reusable popover
+│   │   ├── PressableButton.tsx   # Press-button component
+│   │   ├── ProtectedRoute.tsx    # Auth guard wrapper
+│   │   ├── ScrollArea.tsx        # Scroll area component
+│   │   ├── SEO.tsx               # Per-page meta tags (helmet)
+│   │   ├── StructuredData.tsx    # JSON-LD schema helpers
+│   │   └── ToastHost.tsx         # Toast notification container
 │   │
 │   ├── store/
 │   │   ├── editorStore.ts   # Elements, selection, canvas, undo/redo, components
@@ -520,9 +534,60 @@ Interaction {
 
 **Deploy:** `supabase-deploy.ts` uploads generated HTML to Supabase Storage bucket and returns a public URL.
 
+### Exported HTML SEO
+
+`htmlExporter.ts` now includes SEO meta tags in generated pages:
+- `<meta name="description">`
+- Open Graph tags: `og:title`, `og:description`, `og:image`
+- Twitter Card tags: `twitter:card`, `twitter:title`, `twitter:description`, `twitter:image`
+- Customizable via `exportToHTML()` options: `description`, `ogImage`
+
 ---
 
-## 13. KEYBOARD SHORTCUTS
+## 13. SEO & AEO (ANSWER ENGINE OPTIMIZATION)
+
+### 13.1 Base HTML (`index.html`)
+
+Comprehensive base meta tags for crawlers and social platforms:
+- **Standard:** `<title>`, description, keywords, author, robots, googlebot, canonical, theme-color
+- **Open Graph:** `og:type`, `og:site_name`, `og:title`, `og:description`, `og:url`, `og:image` (1200×630), `og:locale`
+- **Twitter Cards:** `twitter:card` (summary_large_image), `twitter:title`, `twitter:description`, `twitter:image`, `twitter:creator`
+- **PWA:** `mobile-web-app-capable`, `apple-touch-icon`
+- **JSON-LD:** `WebApplication` schema with `Offer` (free) and `author` metadata
+
+### 13.2 Per-Page SEO (`src/components/SEO.tsx`)
+
+Reusable component wrapping `react-helmet-async`:
+- Dynamic `<title>` per route (e.g. "Dashboard – Framer", "Sign In – Framer")
+- Per-page `<meta name="description">` and `<link rel="canonical">`
+- OG / Twitter tag overrides per page
+- `noIndex` support for private pages (`/auth`, `/editor/:projectId`)
+
+Usage in pages:
+| Page | noIndex | Title |
+|------|---------|-------|
+| `Auth.tsx` | ✅ yes | `"Sign In – Framer"` |
+| `Dashboard.tsx` | no | `"Dashboard – Framer"` |
+| `Editor.tsx` | ✅ yes | `"{projectName} – Framer"` |
+
+### 13.3 Structured Data (`src/components/StructuredData.tsx`)
+
+JSON-LD schema helpers for AEO / rich snippets:
+- `webAppSchema()` — WebApplication (software application)
+- `organizationSchema()` — Organization with logo + sameAs
+- `faqSchema(questions[])` — FAQPage for voice search / featured snippets
+- `breadcrumbSchema(items[])` — BreadcrumbList for SERP breadcrumbs
+
+### 13.4 Public Files
+
+| File | Purpose |
+|------|---------|
+| `public/robots.txt` | Allows all crawlers, disallows `/editor/` and `/auth`, points to sitemap |
+| `public/sitemap.xml` | Lists `/`, `/auth`, `/login`, `/signup` with priority and change frequency |
+
+---
+
+## 14. KEYBOARD SHORTCUTS
 
 | Shortcut | Action |
 |----------|--------|
@@ -559,7 +624,7 @@ Interaction {
 
 ---
 
-## 14. BACKEND / SUPABASE
+## 15. BACKEND / SUPABASE
 
 **Client:** `src/lib/supabase.ts` — creates Supabase client from env vars. If vars are unset/default, `supabase` is `null` and all stores fall back to `localStorage`.
 
@@ -577,7 +642,7 @@ Interaction {
 
 ---
 
-## 15. HISTORY / UNDO-REDO
+## 16. HISTORY / UNDO-REDO
 
 Implemented in `editorStore.ts`:
 - `pushHistory()` snapshots full state (elements, rootElementIds, selectedIds, editingId)
@@ -587,7 +652,7 @@ Implemented in `editorStore.ts`:
 
 ---
 
-## 16. CLIPBOARD
+## 17. CLIPBOARD
 
 Custom implementation (`src/lib/clipboard.ts`) using localStorage (`framer_clipboard` key) for cross-tab copy/paste.
 
@@ -598,7 +663,7 @@ Custom implementation (`src/lib/clipboard.ts`) using localStorage (`framer_clipb
 
 ---
 
-## 17. AUTO-SAVE
+## 18. AUTO-SAVE
 
 `useAutoSave.ts` hook:
 - Subscribes to editor store changes
@@ -609,7 +674,7 @@ Custom implementation (`src/lib/clipboard.ts`) using localStorage (`framer_clipb
 
 ---
 
-## 18. STARTER PROJECT
+## 19. STARTER PROJECT
 
 `createStarterProjectData()` generates a full landing page with:
 - **Page:** 1280×900+ "Home" frame with shadow
@@ -624,7 +689,7 @@ looksLikePlaceholderProject() // heuristic to detect empty frames → inject sta
 
 ---
 
-## 19. DESIGN TOKENS (CSS Variables)
+## 20. DESIGN TOKENS (CSS Variables)
 
 Defined in `src/index.css`:
 ```css
@@ -649,19 +714,64 @@ Defined in `src/index.css`:
 
 ---
 
-## 20. BUILD & DEV
+## 21. BUILD & DEV
 
 ```bash
 npm run dev      # Vite dev server
 npm run build    # tsc -b && vite build
+npm run start    # Production server (serves dist/ with SPA fallback on :3000)
 npm run preview  # Vite preview
 npm run lint     # oxlint
 node server.js   # Auto-install + Vite + optional Supabase (all-in-one start)
 ```
 
+## 21.1 Deployment Configs
+
+### Netlify (`netlify.toml`)
+
+```toml
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+```
+
+- SPA fallback: all routes serve `index.html`
+- Security headers: `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`
+- Asset caching: 1 year immutable for `/assets/*`, `.svg`, `.png`
+
+### Railway (`railway.json`)
+
+```json
+{
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "npm run build"
+  },
+  "deploy": {
+    "startCommand": "node server.js",
+    "healthcheckPath": "/"
+  }
+}
+```
+
+- Builds with Nixpacks, starts `server.js` in production mode
+- Health check on `GET /`
+- Server serves `dist/` statically with SPA fallback for client-side routes
+- Port configurable via `PORT` env (default: 3000)
+
 ---
 
-## 21. COMPLETION STATUS (from REPO_AUDIT.md)
+## 22. COMPLETION STATUS (from REPO_AUDIT.md)
 
 | Area | Status |
 |------|--------|
@@ -686,6 +796,7 @@ node server.js   # Auto-install + Vite + optional Supabase (all-in-one start)
 | Undo/redo | ✅ WORKING |
 | Auto-save | ✅ WORKING |
 | Publish/deploy to Supabase | ✅ WORKING |
+| SEO / AEO (meta tags, OG, JSON-LD, robots.txt, sitemap) | ✅ WORKING |
 | Command palette | ⏳ PARTIAL (UI exists) |
 | Context menu | ⏳ PARTIAL (UI exists) |
 | Smart guides | ⏳ PARTIAL (basic) |
@@ -696,7 +807,7 @@ node server.js   # Auto-install + Vite + optional Supabase (all-in-one start)
 
 ---
 
-## 22. KEY ARCHITECTURAL PATTERNS
+## 23. KEY ARCHITECTURAL PATTERNS
 
 1. **Flat element store:** All elements in a flat `Record<string, Element>`, hierarchy via `parentId` + `children[]`
 2. **Recursive rendering:** `Element.tsx` recursively renders children via `ElementRenderer`

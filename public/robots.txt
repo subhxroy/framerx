@@ -1,0 +1,10 @@
+# robots.txt for Framer
+# https://framer.app
+
+User-agent: *
+Allow: /
+Disallow: /editor/
+Disallow: /auth
+
+# Sitemap
+Sitemap: https://framer.app/sitemap.xml

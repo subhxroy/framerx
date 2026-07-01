@@ -19,6 +19,8 @@ import useClipboard from '@/hooks/useClipboard'
 import { useAutoSave } from '@/hooks/useAutoSave'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import CommandPalette from '@/components/CommandPalette'
+import ToastHost from '@/components/ToastHost'
+import SEO from '@/components/SEO'
 import { createStarterProjectData, looksLikePlaceholderProject } from '@/lib/defaultProject'
 import type { Element } from '@/store/editorStore'
 
@@ -145,10 +147,17 @@ export default function Editor() {
   }
 
   return (
-    <div
-      className="flex flex-col h-full w-full"
-      style={{ background: 'var(--app-bg)' }}
-    >
+    <>
+      <SEO
+        title={getProject(projectId ?? '')?.name || 'Editor'}
+        description="Edit your Framer project with the visual editor. Drag-and-drop, style, and publish responsive websites."
+        canonical={`https://framer.app/editor/${projectId}`}
+        noIndex
+      />
+      <div
+        className="flex flex-col h-full w-full"
+        style={{ background: 'var(--app-bg)' }}
+      >
       <Toolbar saveStatus={saveStatus} />
 
       <div className="flex flex-1 overflow-hidden">
@@ -182,7 +191,7 @@ export default function Editor() {
               onPointerDown={handleDividerPointerDown('left')}
               style={{
                 width: 4, cursor: 'col-resize', flexShrink: 0,
-                background: 'transparent', transition: 'background 80ms',
+                background: 'transparent', transition: 'background var(--duration-instant)',
                 zIndex: 20,
               }}
               onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,153,255,0.3)')}
@@ -202,7 +211,7 @@ export default function Editor() {
               onPointerDown={handleDividerPointerDown('right')}
               style={{
                 width: 4, cursor: 'col-resize', flexShrink: 0,
-                background: 'transparent', transition: 'background 80ms',
+                background: 'transparent', transition: 'background var(--duration-instant)',
                 zIndex: 20,
               }}
               onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,153,255,0.3)')}
@@ -230,6 +239,8 @@ export default function Editor() {
       </div>
 
       {showPalette && <CommandPalette onClose={() => setShowPalette(false)} />}
+      <ToastHost />
     </div>
+    </>
   )
 }

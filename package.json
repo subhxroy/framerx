@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "start": "NODE_ENV=production node server.js",
     "lint": "oxlint",
     "preview": "vite preview"
   },
@@ -19,9 +20,11 @@
     "motion": "^12.42.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "react-helmet-async": "^3.0.0",
     "react-moveable": "^0.56.0",
     "react-router-dom": "^7.18.0",
     "selecto": "^1.26.3",
+    "skillfish": "^1.0.38",
     "tailwindcss": "^4.3.1",
     "zustand": "^5.0.14"
   },

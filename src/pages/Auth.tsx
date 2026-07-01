@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, signIn, signUp, signInWithGoogle, resetPassword } from '@/store/authStore'
+import SEO from '@/components/SEO'
+import StructuredData, { organizationSchema } from '@/components/StructuredData'
 
 const CARD_H = 160
 const GAP = 12
@@ -61,7 +63,15 @@ export default function Auth() {
   }
 
   return (
-    <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
+    <>
+      <SEO
+        title="Sign In"
+        description="Sign in to Framer to start building stunning websites with our AI-powered visual editor."
+        canonical="https://framer.app/auth"
+        noIndex
+      />
+      <StructuredData data={organizationSchema()} />
+      <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
       
       {/* ── LEFT PANEL ── */}
       <div style={{
@@ -134,7 +144,7 @@ export default function Auth() {
                 fontWeight: 600,
                 fontFamily: 'Inter, sans-serif',
                 marginBottom: 16,
-                transition: 'background 0.15s',
+                transition: 'background var(--duration-slow)',
               }}
               onMouseEnter={e => (e.currentTarget.style.background = '#222222')}
               onMouseLeave={e => (e.currentTarget.style.background = '#111111')}
@@ -178,7 +188,7 @@ export default function Auth() {
                   fontSize: 14,
                   fontFamily: 'Inter, sans-serif',
                   outline: 'none',
-                  transition: 'border-color 0.15s',
+                  transition: 'border-color var(--duration-slow)',
                 }}
                 onFocus={e => (e.target.style.borderColor = '#111111')}
                 onBlur={e => (e.target.style.borderColor = '#e0e0e0')}
@@ -201,7 +211,7 @@ export default function Auth() {
                 fontSize: 14,
                 fontFamily: 'Inter, sans-serif',
                 outline: 'none',
-                transition: 'border-color 0.15s',
+                transition: 'border-color var(--duration-slow)',
               }}
               onFocus={() => setEmailFocused(true)}
               onBlur={() => setEmailFocused(false)}
@@ -225,7 +235,7 @@ export default function Auth() {
                   fontSize: 14,
                   fontFamily: 'Inter, sans-serif',
                   outline: 'none',
-                  transition: 'border-color 0.15s',
+                  transition: 'border-color var(--duration-slow)',
                 }}
                 onFocus={() => setPasswordFocused(true)}
                 onBlur={() => setPasswordFocused(false)}
@@ -257,7 +267,7 @@ export default function Auth() {
                 fontSize: 14,
                 fontWeight: 600,
                 fontFamily: 'Inter, sans-serif',
-                transition: 'background 0.15s, color 0.15s',
+                transition: 'background var(--duration-slow), color var(--duration-slow)',
                 marginTop: 2,
               }}
               onMouseEnter={e => {
@@ -341,6 +351,7 @@ export default function Auth() {
         <RightGallery />
       </div>
     </div>
+    </>
   )
 }
 
