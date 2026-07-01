@@ -1,6 +1,6 @@
 import { Plus } from 'lucide-react'
 
-export type PanelTab = 'layers' | 'components' | 'assets' | 'cms'
+export type PanelTab = 'layers' | 'components' | 'assets' | 'cms' | 'history' | 'transform'
 
 interface Props {
   activeTab: PanelTab
@@ -12,6 +12,8 @@ const TABS: { id: PanelTab; label: string }[] = [
   { id: 'components', label: 'Components' },
   { id: 'assets',     label: 'Assets' },
   { id: 'cms',        label: 'CMS' },
+  { id: 'history',    label: 'History' },
+  { id: 'transform',  label: 'Transform' },
 ]
 
 export default function LeftPanelTabs({ activeTab, onTabChange }: Props) {

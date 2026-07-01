@@ -89,24 +89,75 @@ export default function InspectorPanel() {
         })}
       </div>
 
-      {/* ── Agent tab placeholder ── */}
+      {/* ── Agent tab ── */}
       {activeTab === 'agent' && (
         <div style={{
-          flex: 1, display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center',
-          padding: 24, gap: 10, textAlign: 'center',
+          flex: 1, display: 'flex', flexDirection: 'column', padding: 12, gap: 12,
         }}>
           <div style={{
-            width: 36, height: 36, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #667eea, #764ba2)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 10px', background: 'var(--surface-2)',
+            border: '1px solid var(--border)', borderRadius: 8,
           }}>
-            <Sparkles size={16} color="#fff" />
+            <div style={{
+              width: 28, height: 28, borderRadius: 6,
+              background: 'linear-gradient(135deg, #667eea, #764ba2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <Sparkles size={14} color="#fff" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: 'var(--text-primary)' }}>Design Agent</p>
+              <p style={{ margin: 0, fontSize: 10, color: 'var(--text-tertiary)' }}>AI-powered assistant</p>
+            </div>
           </div>
-          <p style={{ color: '#555', fontSize: 11, lineHeight: 1.6 }}>
-            AI-powered design assistance.<br />
-            <span style={{ color: '#333' }}>Select an element to get started.</span>
-          </p>
+
+          {selectedIds.length === 0 ? (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <p style={{ color: '#555', fontSize: 11, textAlign: 'center', lineHeight: 1.6 }}>
+                Select an element to<br />get AI suggestions
+              </p>
+            </div>
+          ) : (
+            <>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{
+                  padding: 10, background: 'var(--surface-1)',
+                  border: '1px solid var(--border)', borderRadius: 6,
+                }}>
+                  <p style={{ margin: 0, fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    Try asking: <br />
+                    <span style={{ color: '#888' }}>• "Change the background color to blue"</span><br />
+                    <span style={{ color: '#888' }}>• "Make this text bold and larger"</span><br />
+                    <span style={{ color: '#888' }}>• "Add padding around this element"</span><br />
+                    <span style={{ color: '#888' }}>• "Convert to a button"</span>
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input
+                  type="text"
+                  placeholder="Describe what you want..."
+                  style={{
+                    flex: 1, height: 32, padding: '0 10px',
+                    background: 'var(--surface-2)', border: '1px solid var(--border)',
+                    borderRadius: 6, color: 'var(--text-primary)',
+                    fontSize: 12, outline: 'none', fontFamily: 'inherit',
+                  }}
+                />
+                <button style={{
+                  height: 32, paddingInline: 12,
+                  background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                  border: 'none', borderRadius: 6, color: '#fff',
+                  fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}>
+                  Ask
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
 

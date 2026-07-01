@@ -11,6 +11,8 @@ import CMSPanel from '@/panels/cms/CMSPanel'
 import AssetsPanel from '@/panels/assets/AssetsPanel'
 import InspectorPanel from '@/panels/inspector/InspectorPanel'
 import LeftPanelTabs from '@/panels/layers/LeftPanelTabs'
+import HistoryPanel from '@/editor/history/HistoryPanel'
+import TransformPanel from '@/editor/transform/TransformPanel'
 import type { PanelTab } from '@/panels/layers/LeftPanelTabs'
 import useKeyboard from '@/hooks/useKeyboard'
 import useClipboard from '@/hooks/useClipboard'
@@ -168,6 +170,8 @@ export default function Editor() {
                   {leftTab === 'layers'     && <LayersPanel />}
                   {leftTab === 'components' && <ComponentsPanel />}
                   {leftTab === 'cms'        && <CMSPanel />}
+                  {leftTab === 'history'   && <HistoryPanel />}
+                  {leftTab === 'transform' && <TransformPanel />}
                   {leftTab === 'assets'     && <AssetsPanel />}
                 </ErrorBoundary>
               </div>

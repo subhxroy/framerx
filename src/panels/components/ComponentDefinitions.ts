@@ -332,4 +332,66 @@ export const componentDefinitions: ComponentDefinition[] = [
       }
     },
   },
+  {
+    id: 'footer',
+    name: 'Footer',
+    category: 'Navigation',
+    description: 'Bottom footer with links and copyright',
+    create: (x, y) => {
+      const frameId = genId()
+      const brandId = genId()
+      const link1Id = genId()
+      const link2Id = genId()
+      const copyId = genId()
+      return {
+        rootId: frameId,
+        elements: [
+          {
+            id: frameId, type: 'frame', name: 'Footer',
+            x, y, width: 800, height: 160,
+            style: { backgroundColor: '#111111', border: '1px solid #2a2a2a', borderRadius: 8 },
+            children: [brandId, link1Id, link2Id, copyId],
+            autoLayout: {
+              enabled: true, direction: 'vertical', gap: 12,
+              padding: { top: 24, right: 24, bottom: 24, left: 24 },
+              alignItems: 'center', justifyContent: 'center', wrap: false,
+            },
+          },
+          { id: brandId, type: 'text', name: 'Brand', x: 0, y: 0, width: 200, height: 24, parentId: frameId, text: { content: 'Your Company', fontSize: 18, fontWeight: 700, color: '#f0f0f0', textAlign: 'center', lineHeight: 1.4, letterSpacing: 0 } },
+          { id: link1Id, type: 'text', name: 'Link 1', x: 0, y: 0, width: 200, height: 20, parentId: frameId, text: { content: 'Privacy · Terms · Contact', fontSize: 13, fontWeight: 400, color: '#8a8a8a', textAlign: 'center', lineHeight: 1.4, letterSpacing: 0 } },
+          { id: link2Id, type: 'text', name: 'Link 2', x: 0, y: 0, width: 200, height: 20, parentId: frameId, text: { content: 'Twitter · GitHub · LinkedIn', fontSize: 13, fontWeight: 400, color: '#8a8a8a', textAlign: 'center', lineHeight: 1.4, letterSpacing: 0 } },
+          { id: copyId, type: 'text', name: 'Copyright', x: 0, y: 0, width: 200, height: 16, parentId: frameId, text: { content: '© 2025 All rights reserved.', fontSize: 11, fontWeight: 400, color: '#555555', textAlign: 'center', lineHeight: 1.4, letterSpacing: 0 } },
+        ],
+      }
+    },
+  },
+  {
+    id: 'section',
+    name: 'Section',
+    category: 'Layout',
+    description: 'Generic content section with heading and body',
+    create: (x, y) => {
+      const frameId = genId()
+      const headingId = genId()
+      const bodyId = genId()
+      return {
+        rootId: frameId,
+        elements: [
+          {
+            id: frameId, type: 'frame', name: 'Section',
+            x, y, width: 800, height: 240,
+            style: { backgroundColor: '#1f1f1f', borderRadius: 8 },
+            children: [headingId, bodyId],
+            autoLayout: {
+              enabled: true, direction: 'vertical', gap: 12,
+              padding: { top: 40, right: 40, bottom: 40, left: 40 },
+              alignItems: 'center', justifyContent: 'center', wrap: false,
+            },
+          },
+          { id: headingId, type: 'text', name: 'Section Heading', x: 0, y: 0, width: 400, height: 36, parentId: frameId, text: { content: 'Section Title', fontSize: 28, fontWeight: 700, color: '#f0f0f0', textAlign: 'center', lineHeight: 1.2, letterSpacing: -0.3 } },
+          { id: bodyId, type: 'text', name: 'Section Body', x: 0, y: 0, width: 500, height: 48, parentId: frameId, text: { content: 'This is a content section. Add your own text, images, and components here.', fontSize: 14, fontWeight: 400, color: '#8a8a8a', textAlign: 'center', lineHeight: 1.6, letterSpacing: 0 } },
+        ],
+      }
+    },
+  },
 ]

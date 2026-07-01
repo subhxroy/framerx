@@ -150,6 +150,7 @@ interface EditorStore {
       rootElementIds: string[]
       selectedIds: string[]
       editingId: string | null
+      timestamp: number
     }>
     index: number
   }
@@ -727,6 +728,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         rootElementIds: [...state.rootElementIds],
         selectedIds: [...state.selectedIds],
         editingId: state.editingId,
+        timestamp: Date.now(),
       })
       if (entries.length > 100) entries.shift()
       return { history: { entries, index: entries.length - 1 } }
