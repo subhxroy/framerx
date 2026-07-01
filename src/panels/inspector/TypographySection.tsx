@@ -1,5 +1,6 @@
 import { useCallback, useState, useRef, useEffect } from 'react'
 import { useEditorStore } from '@/store/editorStore'
+import { useInstanceUpdate } from './useInstanceUpdate'
 import NumberInput from './NumberInput'
 import ColorPicker from './ColorPicker'
 
@@ -27,8 +28,8 @@ const TEXT_TRANSFORMS = ['none', 'uppercase', 'lowercase', 'capitalize'] as cons
 export default function TypographySection() {
   const selectedIds = useEditorStore((s) => s.selectedIds)
   const elements = useEditorStore((s) => s.elements)
-  const updateElement = useEditorStore((s) => s.updateElement)
   const pushHistory = useEditorStore((s) => s.pushHistory)
+  const applyChanges = useInstanceUpdate()
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [showFontMenu, setShowFontMenu] = useState(false)
   const [fontQuery, setFontQuery] = useState('')
@@ -42,9 +43,9 @@ export default function TypographySection() {
     (field: string, value: string | number) => {
       if (!el || !t) return
       pushHistory()
-      updateElement(el.id, { text: { ...t, [field]: value } })
+      applyChanges(el, { text: { ...t, [field]: value } })
     },
-    [el, t, pushHistory, updateElement]
+    [el, t, pushHistory, applyChanges]
   )
 
   const handleFontSelect = useCallback((font: string) => {

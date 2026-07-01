@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { useEditorStore } from '@/store/editorStore'
-import type { Element } from '@/store/editorStore'
+import type { Element as EditorElement } from '@/store/editorStore'
+import { setClipboard, getClipboard } from '@/lib/clipboard'
 
 export default function useClipboard() {
-  const clipboardRef = useRef<Element[]>([])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -21,8 +21,7 @@ export default function useClipboard() {
 
       if (e.key === 'c') {
         e.preventDefault()
-        // store each selected element together with its full subtree
-        clipboardRef.current = []
+        const items: EditorElement[] = []
         for (const id of state.selectedIds) {
           const el = state.elements[id]
           if (!el) continue
@@ -31,34 +30,34 @@ export default function useClipboard() {
             const cur = stack.pop()!
             const node = state.elements[cur]
             if (!node) continue
-            clipboardRef.current.push(JSON.parse(JSON.stringify(node)))
+            items.push(JSON.parse(JSON.stringify(node)))
             stack.push(...node.children)
           }
         }
+        setClipboard(items)
         return
       }
 
-      if (e.key === 'v' && clipboardRef.current.length > 0) {
+      if (e.key === 'v') {
+        const clipboard = getClipboard()
+        if (clipboard.length === 0) return
         e.preventDefault()
         state.pushHistory()
-        // group clipboard parts by their original root (top-level copied items)
-        const partIds = new Set(clipboardRef.current.map((p) => p.id))
-        const roots = clipboardRef.current.filter(
+        const partIds = new Set(clipboard.map((p) => p.id))
+        const roots = clipboard.filter(
           (p) => !p.parentId || !partIds.has(p.parentId)
         )
         const newIds: string[] = []
         for (const root of roots) {
-          // collect this root's subtree from the clipboard
-          const subtree: typeof clipboardRef.current = []
+          const subtree: EditorElement[] = []
           const stack = [root.id!]
           while (stack.length) {
             const cur = stack.pop()!
-            const node = clipboardRef.current.find((p) => p.id === cur)
+            const node = clipboard.find((p) => p.id === cur)
             if (!node) continue
             subtree.push(node)
             stack.push(...(node.children || []))
           }
-          // paste roots at the canvas root, offset by 20px
           const detached = subtree.map((p) =>
             p.id === root.id ? { ...p, parentId: null } : p
           )
@@ -80,13 +79,14 @@ export default function useClipboard() {
       if (e.key === 'x') {
         e.preventDefault()
         if (state.selectedIds.length === 0) return
-        clipboardRef.current = []
+        const items: EditorElement[] = []
         state.pushHistory()
         for (const id of [...state.selectedIds]) {
           const el = state.elements[id]
-          if (el) clipboardRef.current.push(JSON.parse(JSON.stringify(el)))
+          if (el) items.push(JSON.parse(JSON.stringify(el)))
           state.deleteElement(id)
         }
+        setClipboard(items)
         return
       }
     }

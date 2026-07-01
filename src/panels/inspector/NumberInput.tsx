@@ -28,7 +28,6 @@ export default function NumberInput({
   const scrubStartValue = useRef(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Keep local in sync when value changes from outside
   useEffect(() => {
     if (!focused && !scrubbing) {
       setLocal(String(Math.round(value * 100) / 100))
@@ -77,7 +76,6 @@ export default function NumberInput({
     [value, onChange, min, max, step]
   )
 
-  // Scrub-to-change: drag the label left/right to change value
   const handleLabelPointerDown = useCallback(
     (e: React.PointerEvent<HTMLLabelElement>) => {
       e.preventDefault()
@@ -112,15 +110,27 @@ export default function NumberInput({
     : value === 0 ? '0' : String(Math.round(value * 100) / 100)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      height: 26,
+      background: 'var(--surface-2)',
+      border: `1px solid ${focused ? 'var(--accent)' : 'var(--border)'}`,
+      borderRadius: 'var(--radius-sm)',
+      overflow: 'hidden',
+      transition: 'border-color 80ms',
+    }}>
       <label
         style={{
           fontSize: 10,
-          color: 'var(--text-muted)',
+          color: focused ? 'var(--accent)' : 'var(--text-tertiary)',
           textTransform: 'uppercase',
-          letterSpacing: '0.06em',
+          letterSpacing: '0.04em',
           userSelect: 'none',
           cursor: 'ew-resize',
+          padding: '0 6px',
+          flexShrink: 0,
+          transition: 'color 80ms',
         }}
         onPointerDown={handleLabelPointerDown}
         onPointerMove={handleLabelPointerMove}
@@ -129,47 +139,45 @@ export default function NumberInput({
       >
         {label}
       </label>
-      <div style={{ position: 'relative' }}>
-        <input
-          ref={inputRef}
-          type="text"
-          value={displayValue}
-          placeholder={mixed ? 'Mixed' : undefined}
-          onChange={(e) => {
-            setLocal(e.target.value)
-            setFocused(true)
-          }}
-          onFocus={() => {
-            setLocal(mixed ? '' : String(value))
-            setFocused(true)
-          }}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
-          style={{
-            width: '100%',
-            height: 28,
-            background: 'var(--surface-2)',
-            border: `1px solid ${focused ? 'var(--accent)' : 'var(--border)'}`,
-            borderRadius: 'var(--radius-sm)',
-            color: 'var(--text-primary)',
-            fontSize: 12,
-            padding: suffix ? '0 22px 0 6px' : '0 6px',
-            outline: 'none',
-            transition: 'border-color 0.1s',
-            fontFamily: 'inherit',
-          }}
-        />
-        {suffix && (
-          <span
-            style={{
-              position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
-              fontSize: 10, color: 'var(--text-muted)', pointerEvents: 'none',
-            }}
-          >
-            {suffix}
-          </span>
-        )}
-      </div>
+      <input
+        ref={inputRef}
+        type="text"
+        value={displayValue}
+        placeholder={mixed ? 'Mixed' : undefined}
+        onChange={(e) => {
+          setLocal(e.target.value)
+          setFocused(true)
+        }}
+        onFocus={() => {
+          setLocal(mixed ? '' : String(value))
+          setFocused(true)
+        }}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        style={{
+          flex: 1,
+          height: '100%',
+          background: 'transparent',
+          border: 'none',
+          outline: 'none',
+          color: 'var(--text-primary)',
+          fontSize: 11,
+          fontFamily: 'var(--font-mono)',
+          textAlign: 'right',
+          padding: suffix ? '0 4px 0 0' : '0 6px 0 0',
+          minWidth: 0,
+        }}
+      />
+      {suffix && (
+        <span style={{
+          fontSize: 10,
+          color: 'var(--text-muted)',
+          padding: '0 6px 0 0',
+          flexShrink: 0,
+        }}>
+          {suffix}
+        </span>
+      )}
     </div>
   )
 }

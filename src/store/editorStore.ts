@@ -63,6 +63,14 @@ export interface Element {
   }
   interactions?: Interaction[]
   cmsBinding?: CMSBinding
+
+  // Component system
+  componentId?: string
+  isInstance?: boolean
+  masterId?: string
+  overrides?: Record<string, any>
+  variants?: ComponentVariant[]
+  activeVariant?: string
 }
 
 export interface ShadowDef {
@@ -80,9 +88,15 @@ export interface CMSBinding {
   collectionFrameCollectionId?: string
 }
 
+export interface ComponentVariant {
+  id: string
+  name: string
+  overrides: Record<string, any>
+}
+
 export interface Interaction {
   id: string
-  trigger: 'hover' | 'tap' | 'appear'
+  trigger: 'hover' | 'tap' | 'appear' | 'inview'
   animation?: {
     opacity?: [number, number]
     scale?: [number, number]
@@ -124,13 +138,19 @@ interface EditorStore {
   elements: Record<string, Element>
   rootElementIds: string[]
   selectedIds: string[]
+  componentMasters: Record<string, string>
   editingId: string | null
   activeTool: Tool
   activeBreakpoint: Breakpoint
   previewMode: boolean
   canvas: CanvasState
   history: {
-    entries: Array<Record<string, Element>>
+    entries: Array<{
+      elements: Record<string, Element>
+      rootElementIds: string[]
+      selectedIds: string[]
+      editingId: string | null
+    }>
     index: number
   }
 
@@ -147,6 +167,11 @@ interface EditorStore {
   groupSelection: () => void
   ungroup: (id: string) => void
   reorderChild: (parentId: string, childId: string, beforeId: string | null) => void
+  createComponent: (elementId: string) => void
+  createInstance: (componentId: string, x: number, y: number) => string
+  updateInstanceOverride: (instanceId: string, field: string, value: any) => void
+  resetInstanceOverrides: (instanceId: string) => void
+  detachInstance: (instanceId: string) => void
   setSelectedIds: (ids: string[]) => void
   setEditingId: (id: string | null) => void
   setActiveTool: (tool: Tool) => void
@@ -236,6 +261,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   elements: {},
   rootElementIds: [],
   selectedIds: [],
+  componentMasters: {},
   editingId: null,
   activeTool: 'select',
   activeBreakpoint: 'desktop',
@@ -321,9 +347,54 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     set((state) => {
       const el = state.elements[id]
       if (!el) return state
-      return {
-        elements: { ...state.elements, [id]: { ...el, ...changes } },
+      const elements = { ...state.elements }
+
+      // Handle parentId change
+      if (changes.parentId !== undefined && changes.parentId !== el.parentId) {
+        const oldParentId = el.parentId
+        const newParentId = changes.parentId
+
+        // Remove from old parent's children
+        if (oldParentId && elements[oldParentId]) {
+          elements[oldParentId] = {
+            ...elements[oldParentId],
+            children: elements[oldParentId].children.filter((c) => c !== id),
+          }
+        }
+
+        // Add to new parent's children (if valid)
+        if (newParentId && elements[newParentId]) {
+          if (!elements[newParentId].children.includes(id)) {
+            elements[newParentId] = {
+              ...elements[newParentId],
+              children: [...elements[newParentId].children, id],
+            }
+          }
+        }
       }
+
+      // Handle children change
+      if (changes.children !== undefined) {
+        const oldChildren = el.children || []
+        const newChildren = changes.children
+
+        // Remove child's parentId for children dropped from this parent
+        for (const cid of oldChildren) {
+          if (!newChildren.includes(cid) && elements[cid]) {
+            elements[cid] = { ...elements[cid], parentId: null }
+          }
+        }
+
+        // Set parentId for newly added children
+        for (const cid of newChildren) {
+          if (!oldChildren.includes(cid) && elements[cid]) {
+            elements[cid] = { ...elements[cid], parentId: id }
+          }
+        }
+      }
+
+      elements[id] = { ...el, ...changes }
+      return { elements }
     })
   },
 
@@ -359,7 +430,9 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
       const rootElementIds = state.rootElementIds.filter((rid) => rid !== id)
       const selectedIds = state.selectedIds.filter((sid) => !toRemove.has(sid))
-      return { elements, rootElementIds, selectedIds }
+      // If the element being edited was deleted, clear editingId
+      const editingId = state.editingId && toRemove.has(state.editingId) ? null : state.editingId
+      return { elements, rootElementIds, selectedIds, editingId }
     })
   },
 
@@ -535,6 +608,105 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     set((state) => reorderSibling(state, id, 'back'))
   },
 
+  createComponent: (elementId) => {
+    const state = get()
+    const el = state.elements[elementId]
+    if (!el || el.componentId) return
+    get().pushHistory()
+    const componentId = `comp_${generateId()}`
+    set((s) => {
+      const elements = { ...s.elements }
+      elements[elementId] = { ...elements[elementId], componentId }
+      return {
+        elements,
+        componentMasters: { ...s.componentMasters, [componentId]: elementId },
+      }
+    })
+  },
+
+  createInstance: (componentId, x, y) => {
+    const state = get()
+    const masterId = state.componentMasters[componentId]
+    const master = masterId ? state.elements[masterId] : undefined
+    if (!master) return ''
+
+    get().pushHistory()
+    const parts: Partial<Element>[] = []
+    const stack = [masterId]
+    while (stack.length) {
+      const cur = stack.pop()!
+      const node = state.elements[cur]
+      if (!node) continue
+      parts.push(JSON.parse(JSON.stringify(node)))
+      stack.push(...node.children)
+    }
+    const newRootId = state.addElementTree(parts, masterId)
+    // Mark root of the clone as an instance
+    set((s) => {
+      const root = s.elements[newRootId]
+      if (!root) return s
+      return {
+        elements: {
+          ...s.elements,
+          [newRootId]: {
+            ...root,
+            name: master.name,
+            isInstance: true,
+            masterId,
+            x,
+            y,
+            parentId: null,
+          },
+        },
+        selectedIds: [newRootId],
+      }
+    })
+    return newRootId
+  },
+
+  updateInstanceOverride: (instanceId, field, value) => {
+    get().pushHistory()
+    set((s) => {
+      const el = s.elements[instanceId]
+      if (!el) return s
+      const overrides = { ...(el.overrides ?? {}), [field]: value }
+      return {
+        elements: { ...s.elements, [instanceId]: { ...el, overrides } },
+      }
+    })
+  },
+
+  resetInstanceOverrides: (instanceId) => {
+    get().pushHistory()
+    set((s) => {
+      const el = s.elements[instanceId]
+      if (!el) return s
+      const { overrides: _, ...rest } = el
+      return {
+        elements: { ...s.elements, [instanceId]: rest },
+      }
+    })
+  },
+
+  detachInstance: (instanceId) => {
+    get().pushHistory()
+    set((s) => {
+      const el = s.elements[instanceId]
+      if (!el) return s
+      const { isInstance: _i, masterId: _m, overrides: _o, activeVariant: _v, ...rest } = el
+      const elements = { ...s.elements, [instanceId]: rest }
+      // Also strip instance markings from all descendants
+      for (const [eid, e] of Object.entries(elements)) {
+        const candidate = e as Element
+        if (candidate.isInstance && candidate.masterId) {
+          const { isInstance: _ii, masterId: _mm, overrides: _oo, activeVariant: _vv, ...clean } = candidate
+          elements[eid] = clean
+        }
+      }
+      return { elements }
+    })
+  },
+
   setSelectedIds: (ids) => set({ selectedIds: ids }),
   setEditingId: (id) => set({ editingId: id }),
   setActiveTool: (tool) => set({ activeTool: tool }),
@@ -550,7 +722,12 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         0,
         state.history.index + 1
       )
-      entries.push(JSON.parse(JSON.stringify(state.elements)))
+      entries.push({
+        elements: JSON.parse(JSON.stringify(state.elements)),
+        rootElementIds: [...state.rootElementIds],
+        selectedIds: [...state.selectedIds],
+        editingId: state.editingId,
+      })
       if (entries.length > 100) entries.shift()
       return { history: { entries, index: entries.length - 1 } }
     })
@@ -560,10 +737,14 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const state = get()
     if (state.history.index < 0) return
     const index = state.history.index - 1
+    if (index < 0) return
+    const entry = state.history.entries[index]
+    if (!entry) return
     set({
-      elements: JSON.parse(
-        JSON.stringify(state.history.entries[index])
-      ),
+      elements: JSON.parse(JSON.stringify(entry.elements)),
+      rootElementIds: [...entry.rootElementIds],
+      selectedIds: [...entry.selectedIds],
+      editingId: entry.editingId,
       history: { ...state.history, index },
     })
   },
@@ -572,10 +753,13 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const state = get()
     if (state.history.index >= state.history.entries.length - 1) return
     const index = state.history.index + 1
+    const entry = state.history.entries[index]
+    if (!entry) return
     set({
-      elements: JSON.parse(
-        JSON.stringify(state.history.entries[index])
-      ),
+      elements: JSON.parse(JSON.stringify(entry.elements)),
+      rootElementIds: [...entry.rootElementIds],
+      selectedIds: [...entry.selectedIds],
+      editingId: entry.editingId,
       history: { ...state.history, index },
     })
   },

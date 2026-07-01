@@ -4,17 +4,16 @@ import { CSS } from '@dnd-kit/utilities'
 import {
   Eye, EyeOff, Lock, ChevronRight, ChevronDown,
   Type, Square, Image as ImageIcon, Circle,
+  Component,
 } from 'lucide-react'
 import type { Element } from '@/store/editorStore'
 
-const TYPE_ICON: Record<string, React.ReactNode> = {
-  frame:   <Square size={11} />,
-  text:    <Type size={11} />,
-  image:   <ImageIcon size={11} />,
-  shape:   <Circle size={11} />,
-  ellipse: <Circle size={11} />,
-  rect:    <Square size={11} />,
-  stack:   <Square size={11} />,
+const TYPE_ICON: Record<string, { icon: React.ReactNode; color: string }> = {
+  frame:   { icon: <Square size={11} strokeWidth={1.5} />,     color: '#666' },
+  text:    { icon: <Type size={11} strokeWidth={1.5} />,       color: '#666' },
+  image:   { icon: <ImageIcon size={11} strokeWidth={1.5} />,  color: '#666' },
+  shape:   { icon: <Circle size={11} strokeWidth={1.5} />,     color: '#666' },
+  stack:   { icon: <Square size={11} strokeWidth={1.5} />,     color: '#666' },
 }
 
 interface Props {
@@ -73,6 +72,9 @@ export default function LayerRow({
     }
   }, [name, element.name, element.id, onRename])
 
+  const isInstance = element.isInstance
+  const typeInfo = TYPE_ICON[element.type] ?? { icon: <Square size={11} strokeWidth={1.5} />, color: '#666' }
+
   return (
     <div
       ref={setNodeRef}
@@ -86,26 +88,23 @@ export default function LayerRow({
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.4 : element.visible ? 1 : 0.45,
+        opacity: isDragging ? 0.3 : element.visible ? 1 : 0.35,
         height: 26,
-        paddingLeft: 8 + depth * 12,
-        paddingRight: 6,
+        paddingLeft: 10 + depth * 14,
+        paddingRight: 4,
         display: 'flex',
         alignItems: 'center',
-        gap: 3,
+        gap: 2,
         background: isSelected
-          ? 'rgba(255,255,255,0.06)'
-          : hovered ? 'rgba(255,255,255,0.025)' : 'transparent',
-        color: isSelected ? '#e8e8e8' : '#888',
+          ? 'rgba(0, 153, 255, 0.12)'
+          : hovered ? 'rgba(255,255,255,0.03)' : 'transparent',
         cursor: 'default',
         userSelect: 'none',
-        borderRadius: 4,
-        marginInline: 4,
-        marginBlock: 0,
+        borderRadius: 0,
       }}
     >
       {/* Collapse toggle */}
-      <div style={{ width: 14, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 16, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {hasChildren ? (
           <button
             onClick={(e) => { e.stopPropagation(); onToggleCollapse(element.id) }}
@@ -115,25 +114,27 @@ export default function LayerRow({
               width: 14, height: 14, borderRadius: 2,
               transition: 'color 60ms',
             }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#888')}
+            onMouseEnter={e => (e.currentTarget.style.color = '#aaa')}
             onMouseLeave={e => (e.currentTarget.style.color = '#444')}
           >
             {isCollapsed
-              ? <ChevronRight size={10} />
-              : <ChevronDown size={10} />
+              ? <ChevronRight size={9} strokeWidth={2} />
+              : <ChevronDown size={9} strokeWidth={2} />
             }
           </button>
-        ) : null}
+        ) : (
+          <div style={{ width: 14 }} />
+        )}
       </div>
 
       {/* Type icon */}
       <span style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         width: 14, height: 14, flexShrink: 0,
-        color: isSelected ? '#0091ff' : '#3a3a3a',
+        color: isSelected ? 'var(--accent)' : isInstance ? '#ff9500' : typeInfo.color,
         transition: 'color 60ms',
       }}>
-        {TYPE_ICON[element.type] ?? <Square size={11} />}
+        {isInstance ? <Component size={11} strokeWidth={1.5} /> : typeInfo.icon}
       </span>
 
       {/* Name / rename input */}
@@ -154,7 +155,7 @@ export default function LayerRow({
             background: '#1a1a1a',
             border: '1px solid var(--accent)',
             borderRadius: 3,
-            color: '#ececec',
+            color: '#e8e8e8',
             fontSize: 11,
             padding: '0 5px',
             outline: 'none',
@@ -166,7 +167,7 @@ export default function LayerRow({
           flex: 1,
           fontSize: 11,
           fontWeight: isSelected ? 500 : 400,
-          color: isSelected ? '#e8e8e8' : '#888',
+          color: isSelected ? '#e8e8e8' : '#999',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
@@ -179,7 +180,7 @@ export default function LayerRow({
 
       {/* Actions — visible on hover */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 1,
+        display: 'flex', alignItems: 'center', gap: 0,
         opacity: hovered || element.locked || !element.visible ? 1 : 0,
         transition: 'opacity 80ms',
         flexShrink: 0,
@@ -189,14 +190,14 @@ export default function LayerRow({
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
             padding: 2, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: element.visible ? '#444' : '#333',
+            color: element.visible ? '#555' : '#333',
             borderRadius: 3, transition: 'color 60ms',
           }}
-          onMouseEnter={e => (e.currentTarget.style.color = '#888')}
-          onMouseLeave={e => (e.currentTarget.style.color = element.visible ? '#444' : '#333')}
+          onMouseEnter={e => (e.currentTarget.style.color = '#aaa')}
+          onMouseLeave={e => (e.currentTarget.style.color = element.visible ? '#555' : '#333')}
           title={element.visible ? 'Hide' : 'Show'}
         >
-          {element.visible ? <Eye size={11} /> : <EyeOff size={11} />}
+          {element.visible ? <Eye size={10} strokeWidth={1.5} /> : <EyeOff size={10} strokeWidth={1.5} />}
         </button>
 
         {element.locked && (
@@ -205,11 +206,11 @@ export default function LayerRow({
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
               padding: 2, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#0091ff', borderRadius: 3,
+              color: 'var(--accent)', borderRadius: 3,
             }}
             title="Unlock"
           >
-            <Lock size={11} />
+            <Lock size={10} strokeWidth={1.5} />
           </button>
         )}
       </div>

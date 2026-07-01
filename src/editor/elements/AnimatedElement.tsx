@@ -54,11 +54,18 @@ export default function AnimatedElement({
       motionProps.initial = getFromValues(int.animation)
       motionProps.animate = getToValues(int.animation)
     }
+    if (int.trigger === 'inview' && int.animation) {
+      motionProps.initial = getFromValues(int.animation)
+      motionProps.whileInView = getToValues(int.animation)
+      motionProps.viewport = { once: true, amount: 0.3 }
+    }
   }
 
   const transitionInt = interactions.find((i) => i.transition)
   if (transitionInt?.transition && Object.keys(motionProps).length > 0) {
-    motionProps.transition = transitionInt.transition
+    // framer-motion expects 'ease' not 'easing'; map the store property accordingly
+    const { easing: _easing, ...rest } = transitionInt.transition
+    motionProps.transition = { ...rest, ease: _easing }
   }
 
   const actionInt = interactions.find((i) => i.trigger === 'tap' && i.action)

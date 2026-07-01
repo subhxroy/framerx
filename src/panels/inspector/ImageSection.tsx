@@ -1,13 +1,14 @@
 import { useCallback } from 'react'
 import { useEditorStore } from '@/store/editorStore'
+import { useInstanceUpdate } from './useInstanceUpdate'
 
 const FITS = ['cover', 'contain', 'fill'] as const
 
 export default function ImageSection() {
   const selectedIds = useEditorStore((s) => s.selectedIds)
   const elements = useEditorStore((s) => s.elements)
-  const updateElement = useEditorStore((s) => s.updateElement)
   const pushHistory = useEditorStore((s) => s.pushHistory)
+  const applyChanges = useInstanceUpdate()
 
   const el = selectedIds.length === 1 ? elements[selectedIds[0]] : null
 
@@ -15,7 +16,7 @@ export default function ImageSection() {
     (changes: Partial<NonNullable<typeof el>['image']>) => {
       if (!el) return
       pushHistory()
-      updateElement(el.id, {
+      applyChanges(el, {
         image: {
           src: el.image?.src ?? '',
           objectFit: el.image?.objectFit ?? 'cover',
@@ -23,7 +24,7 @@ export default function ImageSection() {
         },
       })
     },
-    [el, pushHistory, updateElement]
+    [el, pushHistory, applyChanges]
   )
 
   if (!el || el.type !== 'image') return null

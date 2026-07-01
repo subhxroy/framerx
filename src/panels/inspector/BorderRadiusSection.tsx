@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { useEditorStore } from '@/store/editorStore'
+import { useInstanceUpdate } from './useInstanceUpdate'
 import NumberInput from './NumberInput'
 
 // corner order: [topLeft, topRight, bottomRight, bottomLeft]
@@ -8,8 +9,8 @@ const CORNERS = ['TL', 'TR', 'BR', 'BL'] as const
 export default function BorderRadiusSection() {
   const selectedIds = useEditorStore((s) => s.selectedIds)
   const elements = useEditorStore((s) => s.elements)
-  const updateElement = useEditorStore((s) => s.updateElement)
   const pushHistory = useEditorStore((s) => s.pushHistory)
+  const applyChanges = useInstanceUpdate()
 
   const el = selectedIds.length === 1 ? elements[selectedIds[0]] : null
 
@@ -22,11 +23,11 @@ export default function BorderRadiusSection() {
     (value: number) => {
       if (!el) return
       pushHistory()
-      updateElement(el.id, {
+      applyChanges(el, {
         style: { ...el.style, borderRadius: value, borderRadiusCorners: undefined },
       })
     },
-    [el, pushHistory, updateElement]
+    [el, pushHistory, applyChanges]
   )
 
   const setCorner = useCallback(
@@ -35,11 +36,11 @@ export default function BorderRadiusSection() {
       pushHistory()
       const next = [...corners] as [number, number, number, number]
       next[index] = value
-      updateElement(el.id, {
+      applyChanges(el, {
         style: { ...el.style, borderRadiusCorners: next },
       })
     },
-    [el, corners, pushHistory, updateElement]
+    [el, corners, pushHistory, applyChanges]
   )
 
   const togglePerCorner = useCallback(() => {
@@ -47,15 +48,15 @@ export default function BorderRadiusSection() {
     pushHistory()
     if (isPerCorner) {
       // collapse back to uniform using the topLeft value
-      updateElement(el.id, {
+      applyChanges(el, {
         style: { ...el.style, borderRadius: corners[0], borderRadiusCorners: undefined },
       })
     } else {
-      updateElement(el.id, {
+      applyChanges(el, {
         style: { ...el.style, borderRadiusCorners: [uniform, uniform, uniform, uniform] },
       })
     }
-  }, [el, isPerCorner, corners, uniform, pushHistory, updateElement])
+  }, [el, isPerCorner, corners, uniform, pushHistory, applyChanges])
 
   if (!el) return null
 

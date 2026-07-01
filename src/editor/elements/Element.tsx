@@ -1,5 +1,6 @@
 import { memo, useMemo, useRef } from 'react'
 import { useEditorStore } from '@/store/editorStore'
+import type { Element } from '@/store/editorStore'
 import { useCMSStore, CMSDataContext, useCMSData } from '@/store/cmsStore'
 import { getBPMerged } from '@/lib/breakpointUtils'
 import { useViewportBounds, isElementVisible } from '@/hooks/useViewportBounds'
@@ -15,8 +16,77 @@ interface Props {
   flow?: boolean
 }
 
+function applyFieldOverride(el: Element, field: string, value: any): Element {
+  const parts = field.split('.')
+  if (parts.length === 1) {
+    ;(el as any)[parts[0]] = value
+  } else if (parts.length === 2) {
+    const [obj, key] = parts
+    const nested = (el as any)[obj]
+    if (nested && typeof nested === 'object') {
+      ;(el as any)[obj] = { ...nested, [key]: value }
+    }
+  } else if (parts.length === 3) {
+    const [obj, key1, key2] = parts
+    const nested = (el as any)[obj]
+    if (nested && typeof nested === 'object') {
+      const inner = nested[key1]
+      if (inner && typeof inner === 'object') {
+        ;(el as any)[obj] = { ...nested, [key1]: { ...inner, [key2]: value } }
+      }
+    }
+  }
+  return el
+}
+
+function resolveInstance(
+  element: Element,
+  allElements: Record<string, Element>,
+  visited = new Set<string>()
+): Element {
+  if (!element.isInstance || !element.masterId) return element
+  if (visited.has(element.id)) return element
+  visited.add(element.id)
+
+  const master = allElements[element.masterId]
+  if (!master) return element
+
+  // Start from master's current properties (propagation from master edits)
+  let resolved: Element = {
+    ...master,
+    id: element.id,
+    x: element.x,
+    y: element.y,
+    parentId: element.parentId,
+    sizing: element.sizing,
+    isInstance: true,
+    masterId: element.masterId,
+    activeVariant: element.activeVariant,
+    overrides: element.overrides,
+    // Children mirror the master's subtree for true propagation
+    children: master.children,
+  }
+
+  // Apply instance-specific overrides
+  for (const [field, value] of Object.entries(element.overrides ?? {})) {
+    resolved = applyFieldOverride(resolved, field, value)
+  }
+
+  // Resolve the master's children — each child is already the master's
+  // actual element, so master edits propagate automatically. If the instance
+  // has child-level overrides (keyed "children.0.text.content"), they are
+  // applied above in the override loop.
+  resolved.children = master.children
+
+  return resolved
+}
+
 function ElementRenderer({ id, containerRef, flow = false }: Props) {
   const element = useEditorStore((s) => s.elements[id])
+  const isInstance = element?.isInstance
+  const masterId = element?.masterId
+  // Subscribe to the master element so instance re-resolves when master changes
+  const master = useEditorStore((s) => (isInstance && masterId ? s.elements[masterId] : undefined))
   const activeBreakpoint = useEditorStore((s) => s.activeBreakpoint)
   const previewMode = useEditorStore((s) => s.previewMode)
   const canvasScale = useEditorStore((s) => s.canvas.scale)
@@ -33,7 +103,9 @@ function ElementRenderer({ id, containerRef, flow = false }: Props) {
 
   const merged = useMemo(() => {
     if (!element) return null
-    const bp = getBPMerged(element, activeBreakpoint)
+    const allElements = useEditorStore.getState().elements
+    const instanceResolved = element.isInstance ? resolveInstance(element, allElements) : element
+    const bp = getBPMerged(instanceResolved, activeBreakpoint)
     if (!bp) return null
 
     if (previewMode && element.cmsBinding && !element.cmsBinding.isCollectionFrame) {
@@ -56,7 +128,7 @@ function ElementRenderer({ id, containerRef, flow = false }: Props) {
     }
 
     return bp
-  }, [element, activeBreakpoint, previewMode, cmsCtx.item])
+  }, [element, master, activeBreakpoint, previewMode, cmsCtx.item])
 
   if (!merged || !merged.visible) return null
 
@@ -183,13 +255,14 @@ function ElementRenderer({ id, containerRef, flow = false }: Props) {
         <div style={{
           position: 'absolute',
           left: merged.x,
-          top: merged.y - (20 / canvasScale),
+          top: merged.y - (18 / canvasScale),
           fontSize: 10 / canvasScale,
           fontWeight: 500,
-          color: '#888',
+          color: '#666',
           fontFamily: 'var(--font-ui)',
           pointerEvents: 'none',
-          whiteSpace: 'nowrap'
+          whiteSpace: 'nowrap',
+          letterSpacing: '0.02em',
         }}>
           {merged.name}
         </div>

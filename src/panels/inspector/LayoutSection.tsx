@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { Link, Unlink } from 'lucide-react'
 import { useEditorStore } from '@/store/editorStore'
 import type { SizeMode } from '@/store/editorStore'
+import { useInstanceUpdate } from './useInstanceUpdate'
 import { getBPValue } from '@/lib/breakpointUtils'
 import RespNumberInput from './RespNumberInput'
 import NumberInput from './NumberInput'
@@ -53,6 +54,7 @@ export default function LayoutSection() {
   const elements = useEditorStore((s) => s.elements)
   const updateElement = useEditorStore((s) => s.updateElement)
   const pushHistory = useEditorStore((s) => s.pushHistory)
+  const applyChanges = useInstanceUpdate()
   const activeBreakpoint = useEditorStore((s) => s.activeBreakpoint)
   const [aspectLocked, setAspectLocked] = useState(false)
 
@@ -66,13 +68,13 @@ export default function LayoutSection() {
       const value = field === 'opacity' ? Math.max(0, Math.min(1, rawValue / 100)) : rawValue
       pushHistory()
       if (isDesktop) {
-        updateElement(single.id, { [field]: value } as any)
+        applyChanges(single, { [field]: value } as any)
         // maintain aspect ratio when locked (desktop base only)
         if (aspectLocked && (field === 'width' || field === 'height') && single.width && single.height) {
           if (field === 'width') {
-            updateElement(single.id, { height: Math.round((value * single.height) / single.width) } as any)
+            applyChanges(single, { height: Math.round((value * single.height) / single.width) } as any)
           } else {
-            updateElement(single.id, { width: Math.round((value * single.width) / single.height) } as any)
+            applyChanges(single, { width: Math.round((value * single.width) / single.height) } as any)
           }
         }
       } else {
@@ -85,7 +87,7 @@ export default function LayoutSection() {
         })
       }
     },
-    [single, isDesktop, activeBreakpoint, aspectLocked, pushHistory, updateElement]
+    [single, isDesktop, activeBreakpoint, aspectLocked, pushHistory, applyChanges, updateElement]
   )
 
   const cycleSize = useCallback(
@@ -95,7 +97,7 @@ export default function LayoutSection() {
       const cur = single.sizing?.[axis] ?? 'fixed'
       const next = order[(order.indexOf(cur) + 1) % order.length]
       pushHistory()
-      updateElement(single.id, {
+      applyChanges(single, {
         sizing: {
           width: single.sizing?.width ?? 'fixed',
           height: single.sizing?.height ?? 'fixed',
@@ -103,7 +105,7 @@ export default function LayoutSection() {
         },
       })
     },
-    [single, pushHistory, updateElement]
+    [single, pushHistory, applyChanges]
   )
 
   const addOverride = useCallback(
@@ -143,9 +145,9 @@ export default function LayoutSection() {
       if (!multi) return
       const value = field === 'opacity' ? Math.max(0, Math.min(1, rawValue / 100)) : rawValue
       pushHistory()
-      for (const e of multi) updateElement(e.id, { [field]: value } as any)
+      for (const e of multi) applyChanges(e, { [field]: value } as any)
     },
-    [multi, pushHistory, updateElement]
+    [multi, pushHistory, applyChanges]
   )
 
   if (multi) {

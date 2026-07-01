@@ -3,19 +3,60 @@ import { useEditorStore } from '@/store/editorStore'
 import { componentDefinitions } from '@/panels/components/ComponentDefinitions'
 import { ASSET_DND_TYPE } from '@/panels/assets/AssetsPanel'
 import { breakpointWidths } from '@/lib/breakpointUtils'
-import { hitTestDeepest } from '@/lib/hitTest'
+import { hitTestDeepest, findContainerAt } from '@/lib/hitTest'
+import { getAbsolutePos } from '@/lib/coords'
 import ElementRenderer from '@/editor/elements/Element'
 import SelectionManager from '@/editor/selection/SelectionManager'
 import ContextMenu from '@/panels/context/ContextMenu'
 import { ChevronDown } from 'lucide-react'
 
-const ZOOM_PRESETS = [10, 25, 50, 75, 100, 150, 200, 400]
+const MIN_SCALE = 0.02
+const MAX_SCALE = 64
+const ZOOM_PRESETS = [2, 10, 25, 50, 75, 100, 150, 200, 400, 800, 1600, 3200, 6400]
+
+function clampScale(scale: number) {
+  return Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale))
+}
+
+function getNextPresetScale(currentScale: number, direction: 1 | -1) {
+  const pct = currentScale * 100
+  const nextPct = direction > 0
+    ? ZOOM_PRESETS.find((preset) => preset > pct + 0.5) ?? ZOOM_PRESETS[ZOOM_PRESETS.length - 1]
+    : [...ZOOM_PRESETS].reverse().find((preset) => preset < pct - 0.5) ?? ZOOM_PRESETS[0]
+  return nextPct / 100
+}
+
+function getAbsoluteRect(id: string, elements: ReturnType<typeof useEditorStore.getState>['elements']) {
+  const el = elements[id]
+  if (!el) return null
+  let x = el.x
+  let y = el.y
+  let parentId = el.parentId
+  const visited = new Set<string>([id])
+
+  while (parentId && elements[parentId] && !visited.has(parentId)) {
+    visited.add(parentId)
+    const parent = elements[parentId]
+    x += parent.x
+    y += parent.y
+    parentId = parent.parentId
+  }
+
+  return { x, y, width: el.width, height: el.height }
+}
 
 export default function Canvas() {
   const containerRef = useRef<HTMLDivElement>(null)
   const isPanning = useRef(false)
   const isSpaceDown = useRef(false)
   const lastPos = useRef({ x: 0, y: 0 })
+  const pendingPan = useRef({ x: 0, y: 0 })
+  const panFrame = useRef<number | null>(null)
+  // Rubber-band draw session (drawing a new element with a non-select tool)
+  const drawStart = useRef<{ x: number; y: number } | null>(null)
+  const drawClient = useRef<{ x: number; y: number } | null>(null)
+  const drawRectRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null)
+  const [drawPreview, setDrawPreview] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
 
   const canvas = useEditorStore((s) => s.canvas)
   const setCanvas = useEditorStore((s) => s.setCanvas)
@@ -38,35 +79,109 @@ export default function Canvas() {
     [canvas]
   )
 
+  const canvasToScreen = useCallback(
+    (canvasX: number, canvasY: number) => {
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (!rect) return { x: 0, y: 0 }
+      return {
+        x: rect.left + canvas.x + canvasX * canvas.scale,
+        y: rect.top + canvas.y + canvasY * canvas.scale,
+      }
+    },
+    [canvas]
+  )
+  void canvasToScreen
+
+  const schedulePan = useCallback((dx: number, dy: number) => {
+    pendingPan.current.x += dx
+    pendingPan.current.y += dy
+
+    if (panFrame.current !== null) return
+    panFrame.current = window.requestAnimationFrame(() => {
+      const delta = pendingPan.current
+      pendingPan.current = { x: 0, y: 0 }
+      panFrame.current = null
+      const c = useEditorStore.getState().canvas
+      setCanvas({ x: c.x + delta.x, y: c.y + delta.y })
+    })
+  }, [setCanvas])
+
+  useEffect(() => {
+    return () => {
+      if (panFrame.current !== null) window.cancelAnimationFrame(panFrame.current)
+    }
+  }, [])
+
+  const zoomToScaleAtPoint = useCallback((scale: number, clientX: number, clientY: number) => {
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const c = useEditorStore.getState().canvas
+    const newScale = clampScale(scale)
+    const mx = clientX - rect.left
+    const my = clientY - rect.top
+    const sx = (mx - c.x) / c.scale
+    const sy = (my - c.y) / c.scale
+    setCanvas({
+      scale: newScale,
+      x: mx - sx * newScale,
+      y: my - sy * newScale,
+    })
+  }, [setCanvas])
+
+  const zoomToScaleAtViewportCenter = useCallback((scale: number) => {
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    zoomToScaleAtPoint(scale, rect.left + rect.width / 2, rect.top + rect.height / 2)
+  }, [zoomToScaleAtPoint])
+
+  const zoomToFitIds = useCallback((ids: string[]) => {
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const elements = useEditorStore.getState().elements
+    const boxes = ids
+      .map((id) => getAbsoluteRect(id, elements))
+      .filter((box): box is NonNullable<typeof box> => !!box)
+    if (boxes.length === 0) {
+      setCanvas({ x: 0, y: 0, scale: 1 })
+      return
+    }
+
+    const minX = Math.min(...boxes.map((box) => box.x))
+    const minY = Math.min(...boxes.map((box) => box.y))
+    const maxX = Math.max(...boxes.map((box) => box.x + box.width))
+    const maxY = Math.max(...boxes.map((box) => box.y + box.height))
+    const padding = 80
+    const contentW = Math.max(1, maxX - minX)
+    const contentH = Math.max(1, maxY - minY)
+    const scale = clampScale(Math.min(
+      rect.width / (contentW + padding * 2),
+      rect.height / (contentH + padding * 2),
+      2
+    ))
+
+    setCanvas({
+      scale,
+      x: rect.width / 2 - (minX + contentW / 2) * scale,
+      y: rect.height / 2 - (minY + contentH / 2) * scale,
+    })
+  }, [setCanvas])
+
   const handleWheel = useCallback(
     (e: WheelEvent) => {
       e.preventDefault()
+      const c = useEditorStore.getState().canvas
 
       // Ctrl/Cmd + scroll (or trackpad pinch) = zoom centered on cursor
       if (e.ctrlKey || e.metaKey) {
-        const factor = e.deltaY < 0 ? 1.1 : 0.9
-        const newScale = Math.min(64, Math.max(0.02, canvas.scale * factor))
-        const rect = containerRef.current?.getBoundingClientRect()
-        if (!rect) return
-        const mx = e.clientX - rect.left
-        const my = e.clientY - rect.top
-        const sx = (mx - canvas.x) / canvas.scale
-        const sy = (my - canvas.y) / canvas.scale
-        setCanvas({
-          scale: newScale,
-          x: mx - sx * newScale,
-          y: my - sy * newScale,
-        })
+        const factor = e.deltaY < 0 ? 1.08 : 0.925
+        zoomToScaleAtPoint(c.scale * factor, e.clientX, e.clientY)
         return
       }
 
       // Plain scroll / two-finger trackpad pan
-      setCanvas({
-        x: canvas.x - e.deltaX,
-        y: canvas.y - e.deltaY,
-      })
+      schedulePan(-e.deltaX, -e.deltaY)
     },
-    [canvas, setCanvas]
+    [schedulePan, zoomToScaleAtPoint]
   )
 
   useEffect(() => {
@@ -87,39 +202,32 @@ export default function Canvas() {
       // Shift+1: zoom to fit all
       if (e.code === 'Digit1' && e.shiftKey) {
         e.preventDefault()
-        const rect = containerRef.current?.getBoundingClientRect()
-        if (!rect) return
-        const els = useEditorStore.getState().elements
-        const rootIds = useEditorStore.getState().rootElementIds
-        if (rootIds.length === 0) return setCanvas({ x: 0, y: 0, scale: 1 })
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-        for (const id of rootIds) {
-          const el = els[id]
-          if (!el) continue
-          minX = Math.min(minX, el.x); minY = Math.min(minY, el.y)
-          maxX = Math.max(maxX, el.x + el.width); maxY = Math.max(maxY, el.y + el.height)
-        }
-        const pw = rect.width, ph = rect.height
-        const cw = maxX - minX + 80, ch = maxY - minY + 80
-        const scale = Math.min(pw / cw, ph / ch, 2)
-        setCanvas({ scale, x: (pw - cw * scale) / 2 - minX * scale + 40, y: (ph - ch * scale) / 2 - minY * scale + 40 })
+        zoomToFitIds(useEditorStore.getState().rootElementIds)
+        return
+      }
+
+      // Shift+2: zoom to fit selection
+      if (e.code === 'Digit2' && e.shiftKey) {
+        e.preventDefault()
+        const selectedIds = useEditorStore.getState().selectedIds
+        if (selectedIds.length > 0) zoomToFitIds(selectedIds)
         return
       }
 
       // Ctrl+0: reset to 100%
       if ((e.metaKey || e.ctrlKey) && e.key === '0') {
         e.preventDefault()
-        setCanvas({ scale: 1 })
+        zoomToScaleAtViewportCenter(1)
       }
 
       // Ctrl++/- zoom
       if ((e.metaKey || e.ctrlKey) && (e.key === '=' || e.key === '+')) {
         e.preventDefault()
-        setCanvas({ scale: Math.min(64, useEditorStore.getState().canvas.scale * 1.2) })
+        zoomToScaleAtViewportCenter(getNextPresetScale(useEditorStore.getState().canvas.scale, 1))
       }
       if ((e.metaKey || e.ctrlKey) && e.key === '-') {
         e.preventDefault()
-        setCanvas({ scale: Math.max(0.02, useEditorStore.getState().canvas.scale / 1.2) })
+        zoomToScaleAtViewportCenter(getNextPresetScale(useEditorStore.getState().canvas.scale, -1))
       }
     }
     const handleKU = (e: KeyboardEvent) => {
@@ -158,7 +266,55 @@ export default function Canvas() {
         el.removeEventListener('pointerdown', handleDeepSelect, true)
       }
     }
-  }, [handleWheel, setActiveTool])
+  }, [handleWheel, setActiveTool, zoomToFitIds, zoomToScaleAtViewportCenter])
+
+  // Create an element for the active draw tool at the given canvas rect.
+  // `dragged` distinguishes a real rubber-band from a bare click (default size).
+  // `parentId` nests the new element inside a frame when drawn over one.
+  const createElementFromTool = useCallback(
+    (tool: typeof activeTool, x: number, y: number, w: number, h: number, dragged: boolean, parentId: string | null): string | null => {
+      const base = { x, y, parentId: parentId ?? null }
+      if (tool === 'text') {
+        return addElement({
+          ...base, type: 'text',
+          width: dragged ? Math.max(w, 20) : 200,
+          height: dragged ? Math.max(h, 20) : 40,
+          name: 'Text',
+        })
+      }
+      if (tool === 'image') {
+        return addElement({
+          ...base, type: 'image',
+          width: dragged ? Math.max(w, 20) : 240,
+          height: dragged ? Math.max(h, 20) : 160,
+          name: 'Image',
+        })
+      }
+      if (tool === 'rect' || tool === 'ellipse') {
+        const size = dragged ? undefined : 120
+        return addElement({
+          ...base, type: 'shape',
+          width: dragged ? Math.max(w, 4) : size!,
+          height: dragged ? Math.max(h, 4) : size!,
+          name: tool === 'rect' ? 'Rectangle' : 'Ellipse',
+          style: {
+            borderRadius: tool === 'ellipse' ? 9999 : 0,
+            backgroundColor: 'var(--surface-3)',
+          },
+        })
+      }
+      if (tool === 'frame') {
+        return addElement({
+          ...base, type: 'frame',
+          width: dragged ? Math.max(w, 4) : 240,
+          height: dragged ? Math.max(h, 4) : 200,
+          name: 'Frame',
+        })
+      }
+      return null
+    },
+    [addElement]
+  )
 
   const handleCanvasPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -177,68 +333,85 @@ export default function Canvas() {
         activeTool !== 'select' &&
         isSpaceDown.current === false
       ) {
-        const target = e.target as HTMLElement
-        if (target.closest('[data-element-id]')) return
-
+        // Begin a rubber-band draw. Element is created on pointer-up so the
+        // user can drag out the size they want (bare click ⇒ default size).
+        // Drawing over a frame is allowed — it nests into that frame.
         const pos = screenToCanvas(e.clientX, e.clientY)
-        pushHistory()
-
-        if (activeTool === 'text') {
-          addElement({
-            type: 'text',
-            x: pos.x,
-            y: pos.y,
-            width: 200,
-            height: 40,
-            name: 'Text',
-          })
-        } else if (activeTool === 'image') {
-          addElement({
-            type: 'image',
-            x: pos.x,
-            y: pos.y,
-            width: 240,
-            height: 160,
-            name: 'Image',
-          })
-        } else if (activeTool === 'rect' || activeTool === 'ellipse') {
-          addElement({
-            type: 'shape',
-            x: pos.x,
-            y: pos.y,
-            width: 120,
-            height: 120,
-            name: activeTool === 'rect' ? 'Rectangle' : 'Ellipse',
-            style: {
-              borderRadius: activeTool === 'ellipse' ? 9999 : 0,
-              backgroundColor: 'var(--surface-3)',
-            },
-          })
-        } else if (activeTool === 'frame') {
-          addElement({
-            type: 'frame',
-            x: pos.x,
-            y: pos.y,
-            width: 240,
-            height: 200,
-            name: 'Frame',
-          })
-        }
+        drawStart.current = { x: pos.x, y: pos.y }
+        drawClient.current = { x: e.clientX, y: e.clientY }
+        drawRectRef.current = { x: pos.x, y: pos.y, w: 0, h: 0 }
+        setDrawPreview({ x: pos.x, y: pos.y, w: 0, h: 0 })
+        try { (e.target as HTMLElement).setPointerCapture?.(e.pointerId) } catch { /* noop */ }
+        e.preventDefault()
       }
     },
-    [activeTool, screenToCanvas, pushHistory, addElement]
+    [activeTool, screenToCanvas]
   )
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
+      if (drawStart.current) {
+        const start = drawStart.current
+        const pos = screenToCanvas(e.clientX, e.clientY)
+        const rect = {
+          x: Math.min(start.x, pos.x),
+          y: Math.min(start.y, pos.y),
+          w: Math.abs(pos.x - start.x),
+          h: Math.abs(pos.y - start.y),
+        }
+        drawRectRef.current = rect
+        setDrawPreview(rect)
+        return
+      }
       if (!isPanning.current) return
       const dx = e.clientX - lastPos.current.x
       const dy = e.clientY - lastPos.current.y
       lastPos.current = { x: e.clientX, y: e.clientY }
-      setCanvas({ x: canvas.x + dx, y: canvas.y + dy })
+      schedulePan(dx, dy)
     },
-    [canvas, setCanvas]
+    [schedulePan, screenToCanvas]
   )
+
+  const finishDraw = useCallback(() => {
+    const start = drawStart.current
+    const rect = drawRectRef.current
+    const client = drawClient.current
+    drawStart.current = null
+    drawClient.current = null
+    drawRectRef.current = null
+    setDrawPreview(null)
+    if (!start || !rect) return
+
+    const store = useEditorStore.getState()
+    const tool = store.activeTool
+    const dragged = rect.w > 4 || rect.h > 4
+
+    // Nest into the frame under the draw's start point, if any. Text elements
+    // don't nest (they're leaf content), matching Framer's draw behaviour.
+    let parentId: string | null = null
+    let x = rect.x
+    let y = rect.y
+    if (client && tool !== 'text') {
+      const container = findContainerAt(client.x, client.y, store.elements, '')
+      if (container) {
+        parentId = container
+        const parentAbs = getAbsolutePos(container, store.elements)
+        x = rect.x - parentAbs.x
+        y = rect.y - parentAbs.y
+      }
+    }
+
+    store.pushHistory()
+    const id = createElementFromTool(tool, x, y, rect.w, rect.h, dragged, parentId)
+    if (!id) return
+
+    // Auto-select so handles appear + the inspector populates, then revert to
+    // Select so the next drag manipulates the new element (Framer/Figma feel).
+    store.setSelectedIds([id])
+    store.setActiveTool('select')
+    // Text drops straight into typing.
+    if (tool === 'text') store.setEditingId(id)
+  }, [createElementFromTool])
 
   const activeBreakpoint = useEditorStore((s) => s.activeBreakpoint)
   const previewMode = useEditorStore((s) => s.previewMode)
@@ -327,7 +500,20 @@ export default function Canvas() {
         return
       }
 
-      // 2) Component definition drop
+      // 2) User component (master instance) drop
+      const masterCompId = e.dataTransfer.getData('text/x-framer-master')
+      if (masterCompId) {
+        const store = useEditorStore.getState()
+        const masterElId = store.componentMasters[masterCompId]
+        if (masterElId) {
+          pushHistory()
+          const instanceId = store.createInstance(masterCompId, pos.x, pos.y)
+          if (instanceId) store.setSelectedIds([instanceId])
+        }
+        return
+      }
+
+      // 3) Component definition drop
       const defId = e.dataTransfer.getData('text/plain')
       if (!defId) return
 
@@ -346,11 +532,13 @@ export default function Canvas() {
 
   const handlePointerUp = useCallback(() => {
     isPanning.current = false
-  }, [])
+    if (drawStart.current) finishDraw()
+  }, [finishDraw])
 
   const [showZoom, setShowZoom] = useState(false)
-  const gridSize = 24
+  const gridSize = 8
   const dotSpacing = gridSize * canvas.scale
+  const gridOpacity = canvas.scale < 0.25 ? Math.max(0, canvas.scale / 0.25) * 0.05 : 0.05
 
   return (
     <div
@@ -380,7 +568,7 @@ export default function Canvas() {
         <div
           className="pointer-events-none absolute inset-0"
           style={{
-            backgroundImage: 'radial-gradient(circle, #2c2c2c 1px, transparent 1px)',
+            backgroundImage: `radial-gradient(circle, rgba(255,255,255,${gridOpacity}) 1px, transparent 1px)`,
             backgroundSize: `${dotSpacing}px ${dotSpacing}px`,
             backgroundPosition: `${canvas.x}px ${canvas.y}px`,
           }}
@@ -407,6 +595,41 @@ export default function Canvas() {
         {rootElementIds.map((id) => (
           <ElementRenderer key={id} id={id} containerRef={containerRef} />
         ))}
+
+        {drawPreview && (drawPreview.w > 0 || drawPreview.h > 0) && (
+          <div
+            className="pointer-events-none absolute"
+            style={{
+              left: drawPreview.x,
+              top: drawPreview.y,
+              width: drawPreview.w,
+              height: drawPreview.h,
+              border: `${1 / canvas.scale}px solid var(--accent)`,
+              background: 'rgba(0,153,255,0.08)',
+              borderRadius: activeTool === 'ellipse' ? '9999px' : 0,
+            }}
+          >
+            <div
+              className="absolute"
+              style={{
+                left: '50%',
+                top: '100%',
+                transform: `translate(-50%, ${6 / canvas.scale}px) scale(${1 / canvas.scale})`,
+                transformOrigin: 'top center',
+                background: 'var(--accent)',
+                color: '#fff',
+                fontSize: 11,
+                fontWeight: 500,
+                padding: '2px 8px',
+                borderRadius: 4,
+                whiteSpace: 'nowrap',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {Math.round(drawPreview.w)} × {Math.round(drawPreview.h)}
+            </div>
+          </div>
+        )}
       </div>
 
       {!previewMode && <SelectionManager containerRef={containerRef} />}

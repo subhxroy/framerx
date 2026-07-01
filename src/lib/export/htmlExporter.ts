@@ -107,6 +107,54 @@ ${bodyContent}
 </html>`
 }
 
+export function exportSingleElementHTML(
+  element: Element,
+  elements: Record<string, Element>,
+): string {
+  const rootIds = [element.id]
+  const css = generateCSS(elements, rootIds)
+  const bodyContent = renderElementHTML(element, elements)
+  const mediaQueries = [css.tabletMedia, css.mobileMedia].filter(Boolean).join('\n\n')
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(element.name)}</title>
+  <style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  min-height: 100vh;
+}
+
+body {
+  background: #111;
+  display: flex;
+  justify-content: center;
+}
+
+${css.base}
+
+${mediaQueries}
+
+${css.animations}
+  </style>
+</head>
+<body>
+  <div class="page">
+${bodyContent}
+  </div>
+</body>
+</html>`
+}
+
 export function downloadHTML(
   elements: Record<string, Element>,
   rootIds: string[],

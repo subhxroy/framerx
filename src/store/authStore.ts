@@ -48,22 +48,23 @@ function supabaseUserToAuth(u: any): AuthUser {
 }
 
 if (isSupabaseConfigured && supabase) {
-  // Restore session from Supabase (handles refresh tokens automatically)
-  supabase.auth.getSession().then(({ data }) => {
-    if (data.session?.user) {
-      useAuthStore.getState().setUser(supabaseUserToAuth(data.session.user))
-    } else {
-      useAuthStore.getState().setLoading(false)
-    }
-  })
-
+  // Subscribe to auth state changes (fires INITIAL_SESSION on subscription)
+  // This is the single source of truth -- no need for a separate getSession() call.
   supabase.auth.onAuthStateChange((_event, session) => {
     if (session?.user) {
       useAuthStore.getState().setUser(supabaseUserToAuth(session.user))
     } else {
       useAuthStore.getState().setUser(null)
+      useAuthStore.getState().setLoading(false)
     }
   })
+
+  // Safety timeout: if Supabase auth never fires within 10s, stop loading
+  setTimeout(() => {
+    if (useAuthStore.getState().loading) {
+      useAuthStore.getState().setLoading(false)
+    }
+  }, 10000)
 } else {
   // Local fallback — restore previously saved mock user
   try {
@@ -95,7 +96,11 @@ export async function signIn(email: string, password: string): Promise<boolean> 
     return true
   }
 
-  // Local mock
+  // Local mock — only in dev mode
+  if (!import.meta.env.DEV) {
+    useAuthStore.getState().setError('Authentication is not configured')
+    return false
+  }
   await new Promise((r) => setTimeout(r, 400))
   const user: AuthUser = { uid: 'local_user', email, displayName: email.split('@')[0], photoURL: null }
   useAuthStore.getState().setUser(user)
@@ -117,6 +122,10 @@ export async function signUp(email: string, password: string): Promise<boolean> 
     return true
   }
 
+  if (!import.meta.env.DEV) {
+    useAuthStore.getState().setError('Authentication is not configured')
+    return false
+  }
   await new Promise((r) => setTimeout(r, 400))
   const user: AuthUser = { uid: 'local_user', email, displayName: email.split('@')[0], photoURL: null }
   useAuthStore.getState().setUser(user)
@@ -139,7 +148,10 @@ export async function signInWithGoogle(): Promise<boolean> {
     return true
   }
 
-  // Local mock
+  if (!import.meta.env.DEV) {
+    useAuthStore.getState().setError('Authentication is not configured')
+    return false
+  }
   const user: AuthUser = { uid: 'local_user', email: 'user@example.com', displayName: 'User', photoURL: null }
   useAuthStore.getState().setUser(user)
   localStorage.setItem('framer_auth_user', JSON.stringify(user))
@@ -160,6 +172,10 @@ export async function resetPassword(email: string): Promise<boolean> {
     return true
   }
 
+  if (!import.meta.env.DEV) {
+    useAuthStore.getState().setError('Authentication is not configured')
+    return false
+  }
   await new Promise((r) => setTimeout(r, 400))
   return true
 }

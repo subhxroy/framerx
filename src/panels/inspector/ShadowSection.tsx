@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { useEditorStore } from '@/store/editorStore'
+import { useInstanceUpdate } from './useInstanceUpdate'
 import type { ShadowDef } from '@/store/editorStore'
 import NumberInput from './NumberInput'
 import ColorPicker from './ColorPicker'
@@ -41,8 +42,8 @@ function ShadowColorSwatch({ color, onChange }: { color: string; onChange: (c: s
 export default function ShadowSection() {
   const selectedIds = useEditorStore((s) => s.selectedIds)
   const elements = useEditorStore((s) => s.elements)
-  const updateElement = useEditorStore((s) => s.updateElement)
   const pushHistory = useEditorStore((s) => s.pushHistory)
+  const applyChanges = useInstanceUpdate()
 
   const el = selectedIds.length === 1 ? elements[selectedIds[0]] : null
   const shadows = el?.style.boxShadow ?? []
@@ -51,9 +52,9 @@ export default function ShadowSection() {
     (next: ShadowDef[]) => {
       if (!el) return
       pushHistory()
-      updateElement(el.id, { style: { ...el.style, boxShadow: next } })
+      applyChanges(el, { style: { ...el.style, boxShadow: next } })
     },
-    [el, pushHistory, updateElement]
+    [el, pushHistory, applyChanges]
   )
 
   const addShadow = useCallback(() => {

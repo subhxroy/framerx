@@ -53,9 +53,9 @@ export default function CMSPanel() {
           placeholder="Collection name"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => {
+          onKeyDown={async (e) => {
             if (e.key === 'Enter' && newName.trim()) {
-              const id = addCollection(newName.trim())
+              const id = await addCollection(newName.trim())
               setSelectedId(id)
               setNewName('')
             }
@@ -64,9 +64,9 @@ export default function CMSPanel() {
         <button
           className="text-xs px-2 py-1 rounded"
           style={{ background: 'var(--accent)', color: '#fff', border: 'none', cursor: 'pointer' }}
-          onClick={() => {
+          onClick={async () => {
             if (newName.trim()) {
-              const id = addCollection(newName.trim())
+              const id = await addCollection(newName.trim())
               setSelectedId(id)
               setNewName('')
             }

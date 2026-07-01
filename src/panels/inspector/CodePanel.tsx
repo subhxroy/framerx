@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useEditorStore } from '@/store/editorStore'
-import { exportElementHtml } from '@/lib/exportHtml'
+import { exportSingleElementHTML } from '@/lib/export/htmlExporter'
 import { Check, Copy } from 'lucide-react'
 
 export default function CodePanel() {
@@ -13,7 +13,7 @@ export default function CodePanel() {
 
   const code = useMemo(() => {
     if (!element) return ''
-    return exportElementHtml(element, elements, { format: 'pretty' })
+    return exportSingleElementHTML(element, elements)
   }, [element, elements])
 
   if (!element) {

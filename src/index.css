@@ -3,73 +3,79 @@
 
 :root {
   /* ─────────────────────────────────────────
-     FRAMER EXACT PALETTE
+     FRAMER EXACT PALETTE — matched to real app
   ───────────────────────────────────────── */
 
-  /* Canvas */
-  --canvas-bg: #1a1a1a;
+  /* Canvas — Framer uses very dark near-black */
+  --canvas-bg: #0d0d0d;
 
-  /* App Chrome — real Framer values */
-  --app-bg: #111111;
-  --panel-bg: #1e1e1e;
-  --panel-border: #252525;
-  --toolbar-bg: #181818;
-  --toolbar-height: 44px;
-  --breakpoint-bar-height: 36px;
+  /* App Chrome */
+  --app-bg: #0d0d0d;
+  --panel-bg: #141414;
+  --panel-border: #1e1e1e;
+  --toolbar-bg: #0d0d0d;
+  --toolbar-height: 40px;
+  --breakpoint-bar-height: 32px;
 
   /* Sidebar */
-  --left-panel-width: 240px;
+  --left-panel-width: 220px;
   --right-panel-width: 240px;
 
-  /* Surfaces */
-  --surface-0: #141414;
-  --surface-1: #1e1e1e;
-  --surface-2: #242424;
-  --surface-3: #2a2a2a;
-  --surface-hover: #2e2e2e;
-  --surface-active: #343434;
+  /* Surfaces — Framer's precise 5-level hierarchy */
+  --surface-0: #0d0d0d;
+  --surface-1: #141414;
+  --surface-2: #1a1a1a;
+  --surface-3: #222222;
+  --surface-4: #2a2a2a;
+  --surface-hover: #1e1e1e;
+  --surface-active: #252525;
+  --surface-selected: rgba(0, 145, 255, 0.08);
 
-  /* Text — Framer uses very precise grey ramps */
-  --text-primary: #ececec;
-  --text-secondary: #888888;
+  /* Text — Framer's exact grey ramps */
+  --text-primary: #e8e8e8;
+  --text-secondary: #808080;
   --text-tertiary: #555555;
-  --text-muted: #3d3d3d;
-  --text-disabled: #2a2a2a;
-  --text-inverse: #111111;
+  --text-muted: #383838;
+  --text-disabled: #252525;
+  --text-inverse: #0d0d0d;
 
-  /* Accent — Framer blue */
-  --accent: #0091ff;
-  --accent-hover: #0080e6;
-  --accent-dim: rgba(0, 145, 255, 0.10);
-  --accent-border: rgba(0, 145, 255, 0.25);
+  /* Accent — Framer's signature blue */
+  --accent: #0099ff;
+  --accent-hover: #0088e6;
+  --accent-active: #0077cc;
+  --accent-dim: rgba(0, 153, 255, 0.10);
+  --accent-border: rgba(0, 153, 255, 0.30);
 
   /* Selection */
-  --selection: #0091ff;
+  --selection: #0099ff;
   --selection-handle: #ffffff;
-  --selection-border: #0091ff;
+  --selection-border: #0099ff;
 
   /* Borders */
-  --border: #252525;
-  --border-strong: #343434;
-  --border-subtle: #1e1e1e;
+  --border: #1e1e1e;
+  --border-strong: #2a2a2a;
+  --border-subtle: #171717;
 
   /* Semantic */
-  --error: #ff4444;
-  --success: #1aad60;
-  --warning: #f5a623;
+  --error: #ff3b30;
+  --success: #34c759;
+  --warning: #ff9500;
+  --info: #0099ff;
 
   /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-panel: 0 2px 8px rgba(0, 0, 0, 0.4);
-  --shadow-popup: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
-  --shadow-tooltip: 0 4px 12px rgba(0, 0, 0, 0.5);
-  --shadow-dropdown: 0 12px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.6);
+  --shadow-panel: 0 1px 4px rgba(0, 0, 0, 0.4);
+  --shadow-popup: 0 8px 32px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --shadow-tooltip: 0 2px 8px rgba(0, 0, 0, 0.6);
+  --shadow-dropdown: 0 8px 32px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
 
-  /* Typography */
+  /* Typography — Inter with Framer's exact sizing */
   --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', ui-monospace, monospace;
 
-  /* Font scale — Framer uses very tight sizing */
+  /* Font scale — Framer's very tight sizing */
   --text-xs: 10px;
   --text-sm: 11px;
   --text-base: 12px;
@@ -95,15 +101,15 @@
   --radius-full: 9999px;
 
   /* Layer rows */
-  --row-height: 26px;
-  --row-indent: 12px;
+  --row-height: 28px;
+  --row-indent: 14px;
 
   /* Transitions */
   --ease-ui: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
   --duration-fast: 80ms;
-  --duration-normal: 150ms;
-  --duration-slow: 250ms;
+  --duration-normal: 120ms;
+  --duration-slow: 200ms;
 }
 
 /* ─────────────────────────────────────────
@@ -124,6 +130,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  letter-spacing: -0.01em;
 }
 
 #root {
@@ -132,9 +139,7 @@ body {
   overflow: hidden;
 }
 
-input,
-textarea,
-select {
+input, textarea, select {
   font-family: var(--font-ui);
   font-size: var(--text-base);
 }
@@ -143,8 +148,8 @@ select {
    SCROLLBARS — Framer style (near-invisible)
 ───────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -152,32 +157,46 @@ select {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2a2a2a;
+  background: rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #383838;
+  background: rgba(255, 255, 255, 0.14);
 }
 
 /* ─────────────────────────────────────────
-   MOVEABLE (selection handles)
+   MOVEABLE (selection handles) — Framer style
 ───────────────────────────────────────── */
 .moveable-control-box {
-  --moveable-color: #0091ff;
+  --moveable-color: #0099ff;
 }
 
+/* Selection outline */
+.moveable-control-box .moveable-line {
+  background: #0099ff !important;
+  height: 1px !important;
+}
+
+/* Resize handles — white squares with blue border */
 .moveable-control-box .moveable-control {
   background: #ffffff !important;
-  border: 1.5px solid #0091ff !important;
-  width: 7px !important;
-  height: 7px !important;
-  margin-top: -3.5px !important;
-  margin-left: -3.5px !important;
-  border-radius: 1px !important;
+  border: 1.5px solid #0099ff !important;
+  width: 8px !important;
+  height: 8px !important;
+  margin-top: -4px !important;
+  margin-left: -4px !important;
+  border-radius: 2px !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
 }
 
-/* Snap / alignment guides — Framer pink */
+.moveable-control-box .moveable-control:hover {
+  background: #0099ff !important;
+  border-color: #ffffff !important;
+  transform: scale(1.15);
+}
+
+/* Snap / alignment guides — Framer magenta */
 .moveable-line.moveable-dashed,
 .moveable-line.moveable-guideline,
 .moveable-line.moveable-bold {
@@ -187,11 +206,36 @@ select {
 .moveable-snap-digit,
 .moveable-snap-distance {
   color: #ff2d9b !important;
-  background: rgba(0, 0, 0, 0.85) !important;
+  background: rgba(0, 0, 0, 0.9) !important;
   font-size: 9px !important;
   padding: 1px 4px !important;
   border-radius: 3px !important;
   font-family: var(--font-mono) !important;
+}
+
+/* ─────────────────────────────────────────
+   CANVAS ELEMENT HOVER — Framer style
+───────────────────────────────────────── */
+[data-element-id] {
+  transition: outline-color 60ms;
+}
+
+[data-element-id]:hover {
+  outline: 1px solid rgba(0, 153, 255, 0.3);
+  outline-offset: 0;
+}
+
+/* ─────────────────────────────────────────
+   SELECTO (marquee selection)
+───────────────────────────────────────── */
+.selecto-selection {
+  background: rgba(0, 153, 255, 0.08) !important;
+  border: 1px solid rgba(0, 153, 255, 0.40) !important;
+}
+
+.selecto-selected {
+  outline: 2px solid #0099ff;
+  outline-offset: 1px;
 }
 
 /* ─────────────────────────────────────────
@@ -207,7 +251,7 @@ select {
 .section-label {
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-tertiary);
 }
@@ -226,30 +270,31 @@ select {
 
 /* Glass surface */
 .glass {
-  background: rgba(24, 24, 24, 0.85);
-  backdrop-filter: blur(12px) saturate(1.5);
-  -webkit-backdrop-filter: blur(12px) saturate(1.5);
+  background: rgba(13, 13, 13, 0.90);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
 }
 
 /* Framer input reset */
 .framer-input {
+  height: 28px;
   background: var(--surface-2);
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   font-family: var(--font-ui);
   font-size: var(--text-base);
+  padding: 0 8px;
   outline: none;
   transition: border-color var(--duration-fast);
 }
 
 .framer-input:hover {
-  border-color: var(--surface-3);
+  border-color: var(--border-strong);
 }
 
 .framer-input:focus {
   border-color: var(--accent);
-  background: var(--surface-1);
 }
 
 /* Framer button reset */
@@ -265,15 +310,136 @@ select {
 }
 
 .framer-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.3;
   pointer-events: none;
 }
 
 /* ─────────────────────────────────────────
-   CANVAS DOT-GRID PATTERN
+   CANVAS DOT-GRID PATTERN — Framer style
 ───────────────────────────────────────── */
 .canvas-dot-grid {
   background-color: var(--canvas-bg);
-  background-image: radial-gradient(circle, #2d2d2d 1px, transparent 1px);
-  background-size: 24px 24px;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* ─────────────────────────────────────────
+   TOOLTIP — Framer style
+───────────────────────────────────────── */
+.framer-tooltip {
+  position: absolute;
+  z-index: 500;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  padding: 4px 8px;
+  white-space: nowrap;
+  font-size: 11px;
+  color: #e0e0e0;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.framer-tooltip .shortcut {
+  display: inline-block;
+  background: #2a2a2a;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 10px;
+  color: #666;
+  font-family: var(--font-mono);
+  margin-left: 6px;
+}
+
+/* ─────────────────────────────────────────
+   LAYER ROW — Framer style
+───────────────────────────────────────── */
+.layer-row {
+  display: flex;
+  align-items: center;
+  height: var(--row-height);
+  padding: 0 8px;
+  cursor: pointer;
+  transition: background var(--duration-fast);
+  user-select: none;
+}
+
+.layer-row:hover {
+  background: var(--surface-hover);
+}
+
+.layer-row.selected {
+  background: var(--accent-dim);
+}
+
+.layer-row.selected:hover {
+  background: rgba(0, 153, 255, 0.14);
+}
+
+/* ─────────────────────────────────────────
+   INSPECTOR SECTION — Framer style
+───────────────────────────────────────── */
+.inspector-section {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.inspector-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.inspector-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+/* ─────────────────────────────────────────
+   NUMBER INPUT — Framer style
+───────────────────────────────────────── */
+.framer-number-input {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 6px;
+  gap: 4px;
+  transition: border-color var(--duration-fast);
+}
+
+.framer-number-input:focus-within {
+  border-color: var(--accent);
+}
+
+.framer-number-input .label {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.framer-number-input input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  font-family: var(--font-mono);
+  text-align: right;
+  width: 100%;
+}
+
+.framer-number-input .suffix {
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }

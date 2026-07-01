@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuthStore } from './authStore'
+import { createStarterProjectData } from '@/lib/defaultProject'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -63,9 +64,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     set({ isLoading: true })
 
     if (isSupabaseConfigured && supabase) {
+      const userId = useAuthStore.getState().user?.uid
+      if (!userId) { set({ isLoading: false }); return }
+
       const { data, error } = await supabase
         .from('projects')
         .select('*')
+        .eq('user_id', userId)
         .order('updated_at', { ascending: false })
 
       if (!error && data) {
@@ -123,12 +128,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         canvasHeight: data.canvas_height,
       }
 
-      // Insert empty project_data row
+      const starterData = createStarterProjectData(width, height)
+
       await supabase.from('project_data').insert({
         project_id: data.id,
-        elements: {},
-        root_element_ids: [],
-        canvas_state: { x: 0, y: 0, scale: 1 },
+        elements: starterData.elements,
+        root_element_ids: starterData.rootElementIds,
+        canvas_state: starterData.canvas,
       })
 
       set((s) => {
@@ -157,16 +163,20 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   updateProject: async (id, changes) => {
     const now = Date.now()
     if (isSupabaseConfigured && supabase) {
-      await supabase
-        .from('projects')
-        .update({
-          name: changes.name,
-          canvas_width: changes.canvasWidth,
-          canvas_height: changes.canvasHeight,
-          thumbnail_url: changes.thumbnailUrl,
-          updated_at: new Date(now).toISOString(),
-        })
-        .eq('id', id)
+      try {
+        await supabase
+          .from('projects')
+          .update({
+            name: changes.name,
+            canvas_width: changes.canvasWidth,
+            canvas_height: changes.canvasHeight,
+            thumbnail_url: changes.thumbnailUrl,
+            updated_at: new Date(now).toISOString(),
+          })
+          .eq('id', id)
+      } catch (e) {
+        console.error('updateProject failed:', e)
+      }
     }
 
     set((s) => {
@@ -185,7 +195,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   // ── Delete ─────────────────────────────────────────────────────────────────
   deleteProject: async (id) => {
     if (isSupabaseConfigured && supabase) {
-      await supabase.from('projects').delete().eq('id', id)
+      try {
+        await supabase.from('projects').delete().eq('id', id)
+      } catch (e) {
+        console.error('deleteProject failed:', e)
+      }
     } else {
       localStorage.removeItem(DATA_PREFIX + id)
     }
@@ -218,19 +232,23 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   // ── Save canvas data ────────────────────────────────────────────────────────
   saveProjectData: async (id, data) => {
     if (isSupabaseConfigured && supabase) {
-      await supabase.from('project_data').upsert({
-        project_id: id,
-        elements: data.elements,
-        root_element_ids: data.rootElementIds,
-        canvas_state: data.canvas,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'project_id' })
+      try {
+        await supabase.from('project_data').upsert({
+          project_id: id,
+          elements: data.elements,
+          root_element_ids: data.rootElementIds,
+          canvas_state: data.canvas,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'project_id' })
 
-      // Also bump projects.updated_at
-      await supabase
-        .from('projects')
-        .update({ updated_at: new Date().toISOString() })
-        .eq('id', id)
+        // Also bump projects.updated_at
+        await supabase
+          .from('projects')
+          .update({ updated_at: new Date().toISOString() })
+          .eq('id', id)
+      } catch (e) {
+        console.error('saveProjectData failed:', e)
+      }
     } else {
       try {
         localStorage.setItem(DATA_PREFIX + id, JSON.stringify(data))
@@ -241,17 +259,22 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   // ── Load canvas data ────────────────────────────────────────────────────────
   loadProjectData: async (id) => {
     if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase
-        .from('project_data')
-        .select('*')
-        .eq('project_id', id)
-        .single()
+      try {
+        const { data, error } = await supabase
+          .from('project_data')
+          .select('*')
+          .eq('project_id', id)
+          .single()
 
-      if (error || !data) return null
-      return {
-        elements: data.elements ?? {},
-        rootElementIds: data.root_element_ids ?? [],
-        canvas: data.canvas_state ?? { x: 0, y: 0, scale: 1 },
+        if (error || !data) return null
+        return {
+          elements: data.elements ?? {},
+          rootElementIds: data.root_element_ids ?? [],
+          canvas: data.canvas_state ?? { x: 0, y: 0, scale: 1 },
+        }
+      } catch (e) {
+        console.error('loadProjectData failed:', e)
+        return null
       }
     }
 

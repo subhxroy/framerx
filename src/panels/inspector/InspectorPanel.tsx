@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useEditorStore } from '@/store/editorStore'
+import { RotateCcw } from 'lucide-react'
 import LayoutSection from './LayoutSection'
 import FillSection from './FillSection'
 import BorderSection from './BorderSection'
@@ -18,7 +19,7 @@ import { Sparkles, Code2 } from 'lucide-react'
 type InspectorTab = 'style' | 'agent' | 'code'
 
 function SectionDivider() {
-  return <div style={{ height: 1, background: '#202020', marginInline: -12 }} />
+  return <div style={{ height: 1, background: 'var(--border)', marginInline: 0 }} />
 }
 
 function SectionWrap({ children }: { children: React.ReactNode }) {
@@ -32,16 +33,22 @@ export default function InspectorPanel() {
 
   const elementId = selectedIds[0]
   const element   = elements[elementId]
+  const resetInstanceOverrides = useEditorStore(s => s.resetInstanceOverrides)
+
+  const masterName = element?.isInstance && element?.masterId
+    ? elements[element.masterId]?.name ?? 'Unknown'
+    : null
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
 
-      {/* ── Tab bar: Agent / Style ── */}
+      {/* ── Tab bar: Agent / Style / Code ── */}
       <div style={{
         display: 'flex', alignItems: 'center',
-        height: 36, borderBottom: '1px solid var(--border)',
-        flexShrink: 0, paddingInline: 4,
+        height: 32, borderBottom: '1px solid var(--border)',
+        flexShrink: 0, paddingInline: 6,
         background: 'var(--panel-bg)',
+        gap: 1,
       }}>
         {(['agent', 'style', 'code'] as InspectorTab[]).map(tab => {
           const isActive = activeTab === tab
@@ -50,27 +57,27 @@ export default function InspectorPanel() {
               key={tab}
               onClick={() => setActiveTab(tab)}
               style={{
-                height: 28, paddingInline: 8,
-                borderRadius: 5, border: 'none',
-                background: isActive ? 'rgba(255,255,255,0.07)' : 'transparent',
-                color: isActive ? '#e0e0e0' : '#4a4a4a',
+                height: 24, paddingInline: 8,
+                borderRadius: 4, border: 'none',
+                background: isActive ? 'var(--surface-3)' : 'transparent',
+                color: isActive ? '#e0e0e0' : '#555',
                 cursor: 'pointer', fontSize: 11,
                 fontWeight: isActive ? 500 : 400,
                 fontFamily: 'var(--font-ui)',
-                transition: 'background 80ms, color 80ms',
-                display: 'flex', alignItems: 'center', gap: 5,
+                transition: 'all 80ms',
+                display: 'flex', alignItems: 'center', gap: 4,
                 textTransform: 'capitalize',
               }}
               onMouseEnter={e => {
                 if (!isActive) {
                   e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-                  e.currentTarget.style.color = '#888'
+                  e.currentTarget.style.color = '#999'
                 }
               }}
               onMouseLeave={e => {
                 if (!isActive) {
                   e.currentTarget.style.background = 'transparent'
-                  e.currentTarget.style.color = '#4a4a4a'
+                  e.currentTarget.style.color = '#555'
                 }
               }}
             >
@@ -96,9 +103,9 @@ export default function InspectorPanel() {
           }}>
             <Sparkles size={16} color="#fff" />
           </div>
-          <p style={{ color: '#4a4a4a', fontSize: 11, lineHeight: 1.6 }}>
+          <p style={{ color: '#555', fontSize: 11, lineHeight: 1.6 }}>
             AI-powered design assistance.<br />
-            <span style={{ color: '#2e2e2e' }}>Select an element to get started.</span>
+            <span style={{ color: '#333' }}>Select an element to get started.</span>
           </p>
         </div>
       )}
@@ -113,10 +120,10 @@ export default function InspectorPanel() {
               padding: 20, textAlign: 'center', gap: 8,
             }}>
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
-                <rect x="3" y="3" width="18" height="18" rx="2.5" stroke="#252525" />
-                <path d="M9 12h6M12 9v6" stroke="#2e2e2e" />
+                <rect x="3" y="3" width="18" height="18" rx="2.5" stroke="#222" />
+                <path d="M9 12h6M12 9v6" stroke="#2a2a2a" />
               </svg>
-              <p style={{ color: '#2e2e2e', fontSize: 11, lineHeight: 1.6 }}>
+              <p style={{ color: '#333', fontSize: 11, lineHeight: 1.6 }}>
                 Select an element to<br />edit its properties
               </p>
             </div>
@@ -127,26 +134,64 @@ export default function InspectorPanel() {
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: 6,
                   padding: '8px 12px',
-                  borderBottom: '1px solid #1e1e1e',
+                  borderBottom: '1px solid var(--border)',
                 }}>
                   <span style={{
-                    fontSize: 9, fontWeight: 600, letterSpacing: '0.08em',
-                    textTransform: 'uppercase', color: '#0091ff',
-                    background: 'rgba(0,145,255,0.10)',
+                    fontSize: 9, fontWeight: 600, letterSpacing: '0.06em',
+                    textTransform: 'uppercase', color: 'var(--accent)',
+                    background: 'var(--accent-dim)',
                     padding: '2px 5px', borderRadius: 3,
                   }}>
                     {element.type}
                   </span>
                   <span style={{
-                    fontSize: 11, color: '#666',
+                    fontSize: 11, color: '#777',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     flex: 1,
                   }}>
                     {element.name}
                   </span>
+                  {element.isInstance && masterName && (
+                    <span style={{
+                      fontSize: 9, color: '#a688ff', flexShrink: 0,
+                      background: 'rgba(166,136,255,0.08)',
+                      padding: '2px 5px', borderRadius: 3,
+                      display: 'flex', alignItems: 'center', gap: 4,
+                    }}>
+                      Instance of {masterName}
+                    </span>
+                  )}
                   {selectedIds.length > 1 && (
-                    <span style={{ fontSize: 10, color: '#3a3a3a', flexShrink: 0 }}>
+                    <span style={{ fontSize: 10, color: '#444', flexShrink: 0 }}>
                       +{selectedIds.length - 1}
+                    </span>
+                  )}
+                </div>
+              )}
+              {element?.isInstance && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  padding: '4px 12px',
+                  borderBottom: '1px solid var(--border)',
+                  background: 'rgba(166,136,255,0.03)',
+                }}>
+                  <button
+                    onClick={() => resetInstanceOverrides(element.id)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 4,
+                      background: 'transparent', border: 'none',
+                      color: '#a688ff', cursor: 'pointer', fontSize: 10,
+                      padding: '3px 6px', borderRadius: 3,
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(166,136,255,0.08)' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                  >
+                    <RotateCcw size={10} />
+                    Reset to master
+                  </button>
+                  {Object.keys(element.overrides ?? {}).length > 0 && (
+                    <span style={{ fontSize: 9, color: '#666' }}>
+                      {Object.keys(element.overrides ?? {}).length} override{Object.keys(element.overrides ?? {}).length !== 1 ? 's' : ''}
                     </span>
                   )}
                 </div>

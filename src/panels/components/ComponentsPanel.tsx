@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import { Search } from 'lucide-react'
+import { useEditorStore } from '@/store/editorStore'
 import { componentDefinitions } from './ComponentDefinitions'
 
 const categories = Array.from(
@@ -11,6 +12,16 @@ export default function ComponentsPanel() {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(categories)
   )
+
+  const componentMasters = useEditorStore((s) => s.componentMasters)
+  const elements = useEditorStore((s) => s.elements)
+
+  const userComponents = useMemo(() => {
+    return Object.entries(componentMasters).map(([compId, elId]) => ({
+      compId,
+      name: elements[elId]?.name ?? 'Unknown',
+    }))
+  }, [componentMasters, elements])
 
   const filtered = useMemo(() => {
     if (!search.trim()) return componentDefinitions
@@ -31,7 +42,15 @@ export default function ComponentsPanel() {
     })
   }, [])
 
-  const handleDragStart = useCallback(
+  const handleUserDragStart = useCallback(
+    (e: React.DragEvent, compId: string) => {
+      e.dataTransfer.setData('text/x-framer-master', compId)
+      e.dataTransfer.effectAllowed = 'copy'
+    },
+    []
+  )
+
+  const handlePresetDragStart = useCallback(
     (e: React.DragEvent, defId: string) => {
       e.dataTransfer.setData('text/plain', defId)
       e.dataTransfer.effectAllowed = 'copy'
@@ -81,6 +100,62 @@ export default function ComponentsPanel() {
       </div>
 
       <div className="flex-1 overflow-y-auto py-1">
+        {/* User components */}
+        {userComponents.length > 0 && (
+          <div>
+            <div
+              className="flex items-center gap-1 w-full px-3 py-1.5"
+              style={{
+                color: 'var(--text-muted)',
+                fontSize: 'var(--text-xs)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+              }}
+            >
+              Your Components
+            </div>
+            <div className="px-2 pb-2">
+              <div
+                className="grid gap-1"
+                style={{ gridTemplateColumns: '1fr 1fr' }}
+              >
+                {userComponents.map((uc) => (
+                  <div
+                    key={uc.compId}
+                    draggable
+                    onDragStart={(e) => handleUserDragStart(e, uc.compId)}
+                    className="flex flex-col items-center justify-center rounded p-2 gap-1 cursor-grab active:cursor-grabbing"
+                    style={{
+                      background: 'var(--surface-1)',
+                      border: '1px solid var(--border)',
+                      height: 64,
+                      transition: 'background 0.1s',
+                    }}
+                    onMouseEnter={(e) => {
+                      ;(e.currentTarget as HTMLElement).style.background = 'var(--surface-hover)'
+                    }}
+                    onMouseLeave={(e) => {
+                      ;(e.currentTarget as HTMLElement).style.background = 'var(--surface-1)'
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 'var(--text-xs)',
+                        color: 'var(--text-primary)',
+                        textAlign: 'center',
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {uc.name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Preset component categories */}
         {Object.entries(grouped).map(([category, defs]) => (
           <div key={category}>
             <button
@@ -111,7 +186,7 @@ export default function ComponentsPanel() {
                     <div
                       key={def.id}
                       draggable
-                      onDragStart={(e) => handleDragStart(e, def.id)}
+                      onDragStart={(e) => handlePresetDragStart(e, def.id)}
                       className="flex flex-col items-center justify-center rounded p-2 gap-1 cursor-grab active:cursor-grabbing"
                       style={{
                         background: 'var(--surface-1)',

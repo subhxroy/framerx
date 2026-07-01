@@ -1,13 +1,14 @@
 import { useCallback, useState, useRef } from 'react'
 import { useEditorStore } from '@/store/editorStore'
+import { useInstanceUpdate } from './useInstanceUpdate'
 import NumberInput from './NumberInput'
 import ColorPicker from './ColorPicker'
 
 export default function BorderSection() {
   const selectedIds = useEditorStore((s) => s.selectedIds)
   const elements = useEditorStore((s) => s.elements)
-  const updateElement = useEditorStore((s) => s.updateElement)
   const pushHistory = useEditorStore((s) => s.pushHistory)
+  const applyChanges = useInstanceUpdate()
   const [showColorPicker, setShowColorPicker] = useState(false)
   const swatchRef = useRef<HTMLButtonElement>(null)
 
@@ -27,11 +28,11 @@ export default function BorderSection() {
       const s = style ?? borderStyle
       const c = color ?? borderColor
       const borderStr = w > 0 ? `${w}px ${s} ${c}` : 'none'
-      updateElement(el.id, {
+      applyChanges(el, {
         style: { ...el.style, border: borderStr },
       })
     },
-    [el, borderWidth, borderStyle, borderColor, pushHistory, updateElement]
+    [el, borderWidth, borderStyle, borderColor, pushHistory, applyChanges]
   )
 
   if (!el) return null

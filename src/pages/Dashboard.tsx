@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, signOut } from '@/store/authStore'
 import { useProjectStore } from '@/store/projectStore'
+import { createStarterProjectData } from '@/lib/defaultProject'
 import {
   Plus, MoreHorizontal, Copy, Trash2, X, Search,
   Monitor, Tablet, Smartphone, LogOut,
@@ -59,7 +60,7 @@ export default function Dashboard() {
 
   const handleCreate = useCallback(async () => {
     const id = await createProject(newName || 'Untitled', canvasSize.width, canvasSize.height)
-    await saveProjectData(id, { elements: {}, rootElementIds: [], canvas: { x: 0, y: 0, scale: 1 } })
+    await saveProjectData(id, createStarterProjectData(canvasSize.width, canvasSize.height))
     setShowNewModal(false)
     setNewName('Untitled')
     navigate(`/editor/${id}`)

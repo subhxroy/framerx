@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import { useEditorStore } from '@/store/editorStore'
+import { useInstanceUpdate } from './useInstanceUpdate'
 import ColorPicker from './ColorPicker'
 import { Plus, Trash2, Eye, EyeOff, GripVertical } from 'lucide-react'
 
@@ -54,26 +55,28 @@ function parseLegacyColor(bg?: string): FillDef[] {
 export default function FillSection() {
   const selectedIds = useEditorStore(s => s.selectedIds)
   const elements = useEditorStore(s => s.elements)
-  const updateElement = useEditorStore(s => s.updateElement)
   const pushHistory = useEditorStore(s => s.pushHistory)
+  const applyChanges = useInstanceUpdate()
 
   const el = selectedIds.length === 1 ? elements[selectedIds[0]] : null
   const [openPickerIdx, setOpenPickerIdx] = useState<number | null>(null)
+  const [openStop, setOpenStop] = useState<{ f: number; s: number } | null>(null)
   const swatchRefs = useRef<(HTMLButtonElement | null)[]>([])
+  const stopRefs = useRef<Record<string, HTMLButtonElement | null>>({})
 
   const saveFills = useCallback((next: FillDef[]) => {
     if (!el) return
     pushHistory()
     // Compute CSS background from fills
     const bg = fillsToBackground(next)
-    updateElement(el.id, {
+    applyChanges(el, {
       style: {
         ...el.style,
         fills: next,
-        backgroundColor: bg,  // keep backwards compat
+        backgroundColor: bg,
       } as any,
     })
-  }, [el, pushHistory, updateElement])
+  }, [el, pushHistory, applyChanges])
 
   if (!el) return null
 
@@ -112,6 +115,29 @@ export default function FillSection() {
 
   const setFillColor = (idx: number, color: string) => {
     saveFills(fills.map((f, i) => i === idx ? { ...f, color } : f))
+  }
+
+  // --- Gradient stop editing ---
+  const updateStops = (fillIdx: number, stops: { color: string; position: number }[]) => {
+    saveFills(fills.map((f, i) => i === fillIdx ? { ...f, stops } : f))
+  }
+  const setStopColor = (fi: number, si: number, color: string) => {
+    const f = fills[fi]; if (!f.stops) return
+    updateStops(fi, f.stops.map((s, i) => i === si ? { ...s, color } : s))
+  }
+  const setStopPosition = (fi: number, si: number, position: number) => {
+    const f = fills[fi]; if (!f.stops) return
+    const p = Math.max(0, Math.min(100, Math.round(position)))
+    updateStops(fi, f.stops.map((s, i) => i === si ? { ...s, position: p } : s))
+  }
+  const addStop = (fi: number) => {
+    const f = fills[fi]; const stops = f.stops ?? []
+    const last = stops[stops.length - 1]
+    updateStops(fi, [...stops, { color: last?.color ?? '#ffffff', position: 100 }])
+  }
+  const removeStop = (fi: number, si: number) => {
+    const f = fills[fi]; if (!f.stops || f.stops.length <= 2) return
+    updateStops(fi, f.stops.filter((_, i) => i !== si))
   }
 
   return (
@@ -228,25 +254,80 @@ export default function FillSection() {
       ))}
 
       {/* Gradient stop editor */}
-      {fills.map((fill) => {
+      {fills.map((fill, fillIdx) => {
         if (fill.type === 'solid' || !fill.stops) return null
+        const stops = fill.stops
         return (
-          <div key={`stops-${fill.id}`} style={{ marginTop: 4 }}>
+          <div key={`stops-${fill.id}`} style={{ marginTop: 4, paddingLeft: 4 }}>
+            {/* Live gradient preview bar */}
             <div style={{
-              height: 16, borderRadius: 4, margin: '0 4px',
-              background: fillToCSS(fill),
+              height: 16, borderRadius: 4, marginBottom: 6,
+              background: fillToCSS({ ...fill, angle: 90 }),
               border: '1px solid var(--border)',
             }} />
-            <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
-              {fill.stops.map((stop, si) => (
-                <div key={si} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <div style={{
-                    width: 14, height: 14, borderRadius: 2,
-                    background: stop.color, border: '1px solid var(--border)',
-                  }} />
-                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{stop.position}%</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {stops.map((stop, si) => (
+                <div key={si} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {/* Editable color swatch → opens ColorPicker */}
+                  <button
+                    ref={node => { stopRefs.current[`${fillIdx}-${si}`] = node }}
+                    onClick={() => setOpenStop(
+                      openStop && openStop.f === fillIdx && openStop.s === si ? null : { f: fillIdx, s: si }
+                    )}
+                    style={{
+                      width: 18, height: 18, borderRadius: 3, flexShrink: 0,
+                      border: '1px solid var(--border)', cursor: 'pointer',
+                      background: stop.color,
+                    }}
+                  />
+                  {/* Position */}
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={stop.position}
+                    onChange={e => setStopPosition(fillIdx, si, Number(e.target.value))}
+                    style={{
+                      width: 48, height: 24, background: 'var(--surface-2)',
+                      border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                      color: 'var(--text-primary)', fontSize: 11, padding: '0 4px',
+                      outline: 'none',
+                    }}
+                  />
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>%</span>
+                  {/* Remove (min 2 stops) */}
+                  <button
+                    onClick={() => removeStop(fillIdx, si)}
+                    disabled={stops.length <= 2}
+                    style={{
+                      marginLeft: 'auto', background: 'none', border: 'none', padding: 0,
+                      display: 'flex', color: stops.length <= 2 ? '#333' : '#666',
+                      cursor: stops.length <= 2 ? 'default' : 'pointer',
+                    }}
+                  >
+                    <Trash2 size={10} />
+                  </button>
+                  {openStop && openStop.f === fillIdx && openStop.s === si && stopRefs.current[`${fillIdx}-${si}`] && (
+                    <ColorPicker
+                      value={stop.color}
+                      onChange={color => setStopColor(fillIdx, si, color)}
+                      onClose={() => setOpenStop(null)}
+                      anchorEl={stopRefs.current[`${fillIdx}-${si}`]!}
+                    />
+                  )}
                 </div>
               ))}
+              <button
+                onClick={() => addStop(fillIdx)}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                  height: 22, marginTop: 2, background: 'transparent',
+                  border: '1px dashed var(--border)', borderRadius: 'var(--radius-sm)',
+                  color: 'var(--text-muted)', fontSize: 10, cursor: 'pointer',
+                }}
+              >
+                <Plus size={10} /> Add stop
+              </button>
             </div>
           </div>
         )

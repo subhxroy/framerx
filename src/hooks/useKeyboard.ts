@@ -28,6 +28,8 @@ export default function useKeyboard() {
   const elements = useEditorStore((s) => s.elements)
   const bringForward = useEditorStore((s) => s.bringForward)
   const sendBackward = useEditorStore((s) => s.sendBackward)
+  const bringToFront = useEditorStore((s) => s.bringToFront)
+  const sendToBack = useEditorStore((s) => s.sendToBack)
   const groupSelection = useEditorStore((s) => s.groupSelection)
   const ungroup = useEditorStore((s) => s.ungroup)
 
@@ -111,13 +113,20 @@ export default function useKeyboard() {
         return
       }
 
-      // [ — Send backward, ] — Bring forward
+      // [ / ] reorder. Cmd/Ctrl sends all the way back/front.
       if (e.key === '[' || e.key === ']') {
         e.preventDefault()
-        if (selectedIds.length === 1) {
+        if (selectedIds.length > 0) {
           pushHistory()
-          if (e.key === ']') bringForward(selectedIds[0])
-          else sendBackward(selectedIds[0])
+          for (const id of selectedIds) {
+            if (e.key === ']') {
+              if (isCmdOrCtrl(e)) bringToFront(id)
+              else bringForward(id)
+            } else {
+              if (isCmdOrCtrl(e)) sendToBack(id)
+              else sendBackward(id)
+            }
+          }
         }
         return
       }
@@ -186,6 +195,8 @@ export default function useKeyboard() {
     pushHistory,
     bringForward,
     sendBackward,
+    bringToFront,
+    sendToBack,
     groupSelection,
     ungroup,
   ])

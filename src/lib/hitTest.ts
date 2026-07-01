@@ -12,7 +12,7 @@ function depthOf(id: string, elements: Record<string, Element>): number {
 }
 
 /** True when `id` is a descendant of `ancestorId` (strict — not the ancestor itself). */
-function isDescendant(
+export function isDescendant(
   id: string,
   ancestorId: string,
   elements: Record<string, Element>
@@ -23,6 +23,40 @@ function isDescendant(
     cur = elements[cur]?.parentId
   }
   return false
+}
+
+/**
+ * Returns the deepest frame/stack whose on-screen box contains the point and
+ * that can accept `draggedId` as a child — excluding the dragged element itself
+ * and its own descendants (you can't drop a node into its own subtree). Used
+ * for drag-to-nest reparenting. Returns null when the point is over no valid
+ * container (⇒ drop onto the canvas root).
+ */
+export function findContainerAt(
+  clientX: number,
+  clientY: number,
+  elements: Record<string, Element>,
+  draggedId: string
+): string | null {
+  const nodes = document.querySelectorAll<HTMLElement>('[data-element-id]')
+  let best: string | null = null
+  let bestDepth = -1
+  nodes.forEach((node) => {
+    const id = node.getAttribute('data-element-id')
+    if (!id || !elements[id]) return
+    const el = elements[id]
+    if (el.type !== 'frame' && el.type !== 'stack') return
+    if (id === draggedId || isDescendant(id, draggedId, elements)) return
+    const r = node.getBoundingClientRect()
+    if (r.width === 0 && r.height === 0) return
+    if (clientX < r.left || clientX > r.right || clientY < r.top || clientY > r.bottom) return
+    const d = depthOf(id, elements)
+    if (d > bestDepth) {
+      bestDepth = d
+      best = id
+    }
+  })
+  return best
 }
 
 /**

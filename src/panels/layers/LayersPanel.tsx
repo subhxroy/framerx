@@ -114,14 +114,31 @@ export default function LayersPanel() {
       const { active, over } = event
       if (!over || active.id === over.id) return
 
-      const oldIdx = rootElementIds.indexOf(active.id as string)
-      const newIdx = rootElementIds.indexOf(over.id as string)
-      if (oldIdx < 0 || newIdx < 0) return
+      const activeId = active.id as string
+      const overId = over.id as string
+      const store = useEditorStore.getState()
+      const activeEl = store.elements[activeId]
+      const overEl = store.elements[overId]
+      if (!activeEl || !overEl) return
 
       pushHistory()
-      useEditorStore.setState({
-        rootElementIds: arrayMove(rootElementIds, oldIdx, newIdx),
-      })
+
+      const activeParentId = activeEl.parentId ?? null
+      const overParentId = overEl.parentId ?? null
+
+      if (activeParentId === null && overParentId === null) {
+        // Both root elements — existing behavior
+        const oldIdx = rootElementIds.indexOf(activeId)
+        const newIdx = rootElementIds.indexOf(overId)
+        if (oldIdx < 0 || newIdx < 0) return
+        useEditorStore.setState({
+          rootElementIds: arrayMove(rootElementIds, oldIdx, newIdx),
+        })
+      } else if (activeParentId !== null && activeParentId === overParentId) {
+        // Same parent — reorder within parent's children
+        store.reorderChild(activeParentId, activeId, overId)
+      }
+      // Different parents or other cases — no-op (cross-parent reparenting not supported yet)
     },
     [rootElementIds, pushHistory]
   )

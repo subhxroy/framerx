@@ -19,13 +19,12 @@ export default function LeftPanelTabs({ activeTab, onTabChange }: Props) {
     <div style={{
       display: 'flex',
       alignItems: 'center',
-      height: 36,
+      height: 32,
       borderBottom: '1px solid var(--border)',
       background: 'var(--panel-bg)',
       flexShrink: 0,
-      paddingLeft: 4,
-      paddingRight: 4,
-      gap: 0,
+      paddingInline: 6,
+      gap: 1,
     }}>
       {TABS.map(tab => {
         const isActive = activeTab === tab.id
@@ -34,31 +33,30 @@ export default function LeftPanelTabs({ activeTab, onTabChange }: Props) {
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
             style={{
-              height: 28,
+              height: 24,
               paddingInline: 8,
-              borderRadius: 5,
+              borderRadius: 4,
               border: 'none',
-              background: isActive ? 'rgba(255,255,255,0.07)' : 'transparent',
-              color: isActive ? '#e0e0e0' : '#4a4a4a',
+              background: isActive ? 'var(--surface-3)' : 'transparent',
+              color: isActive ? '#e0e0e0' : '#555',
               cursor: 'pointer',
               fontSize: 11,
               fontWeight: isActive ? 500 : 400,
               fontFamily: 'var(--font-ui)',
-              transition: 'background 80ms, color 80ms',
+              transition: 'all 80ms',
               whiteSpace: 'nowrap',
               letterSpacing: '0.005em',
-              position: 'relative',
             }}
             onMouseEnter={e => {
               if (!isActive) {
                 e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-                e.currentTarget.style.color = '#888'
+                e.currentTarget.style.color = '#999'
               }
             }}
             onMouseLeave={e => {
               if (!isActive) {
                 e.currentTarget.style.background = 'transparent'
-                e.currentTarget.style.color = '#4a4a4a'
+                e.currentTarget.style.color = '#555'
               }
             }}
           >
@@ -67,22 +65,20 @@ export default function LeftPanelTabs({ activeTab, onTabChange }: Props) {
         )
       })}
 
-      {/* Spacer */}
       <div style={{ flex: 1 }} />
 
-      {/* Add page / section button */}
       <button
         style={{
-          width: 24, height: 24,
+          width: 22, height: 22,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           borderRadius: 4, border: 'none',
-          background: 'transparent', color: '#3a3a3a',
-          cursor: 'pointer', transition: 'background 80ms, color 80ms',
+          background: 'transparent', color: '#333',
+          cursor: 'pointer', transition: 'all 80ms',
           flexShrink: 0,
         }}
         title="Add"
-        onMouseEnter={e => { e.currentTarget.style.background = '#252525'; e.currentTarget.style.color = '#888' }}
-        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#3a3a3a' }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#888' }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#333' }}
       >
         <Plus size={12} />
       </button>

@@ -26,7 +26,7 @@ export async function deployToSupabase(
 
     // Convert HTML string to a Blob
     const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' })
-    const path = `${user.id}/${projectId}/index.html`
+    const path = `${user.uid}/${projectId}/index.html`
 
     // Upload to Supabase Storage (upsert true to overwrite)
     const { error: uploadError } = await supabase.storage

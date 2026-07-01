@@ -5,6 +5,8 @@ import { useEditorStore } from '@/store/editorStore'
 import type { OnSelectEnd } from 'selecto'
 import SmartGuides from './SmartGuides'
 import AlignmentBar from './AlignmentBar'
+import { findContainerAt } from '@/lib/hitTest'
+import { getAbsolutePos } from '@/lib/coords'
 
 interface Props {
   containerRef: React.RefObject<HTMLDivElement | null>
@@ -29,13 +31,17 @@ export default function SelectionManager({ containerRef }: Props) {
   const [shiftHeld, setShiftHeld] = useState(false)
   const altHeld = useRef(false)
   const resizeStartCenter = useRef<{ x: number; y: number } | null>(null)
-  // Drag-to-reorder inside auto-layout frames.
   const [insertionLine, setInsertionLine] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
   const reorderTarget = useRef<{ parentId: string; childId: string; beforeId: string | null } | null>(null)
+  // Drag-to-nest: the frame currently hovered as a reparent target.
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null)
+  const dropTargetRef = useRef<string | null>(null)
+  const draggedIdRef = useRef<string | null>(null)
+  const updateElementRef = useRef(updateElement)
+  updateElementRef.current = updateElement
   const selectoRef = useRef<Selecto | null>(null)
   const selectoContainerRef = useRef<HTMLDivElement>(null)
 
-  // Track Shift (proportional resize) and Alt (scale from center) modifiers.
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === 'Shift') setShiftHeld(true)
@@ -78,6 +84,16 @@ export default function SelectionManager({ containerRef }: Props) {
       ratio: 0,
     })
 
+    // Suppress marquee selection while a draw tool is active (or in preview) —
+    // otherwise Selecto fights the canvas rubber-band draw and clears the
+    // freshly-created element's selection on pointer-up.
+    selecto.on('dragStart', (e) => {
+      const store = useEditorStore.getState()
+      if (store.activeTool !== 'select' || store.previewMode) {
+        e.stop()
+      }
+    })
+
     selecto.on('selectEnd', (e: OnSelectEnd) => {
       const ids: string[] = []
       for (const el of e.selected) {
@@ -116,7 +132,6 @@ export default function SelectionManager({ containerRef }: Props) {
     }
   }, [targets])
 
-  // Update alignment bar position when multiple items selected
   useEffect(() => {
     if (selectedIds.length < 2 || targets.length < 2) {
       setAlignBarPos(null)
@@ -160,7 +175,6 @@ export default function SelectionManager({ containerRef }: Props) {
         style={{ pointerEvents: 'auto', zIndex: 5 }}
       />
 
-      {/* Smart guides overlay */}
       <SmartGuides
         draggingId={draggingId}
         canvasTransform={canvas}
@@ -178,28 +192,30 @@ export default function SelectionManager({ containerRef }: Props) {
           snapDirections={{ top: true, left: true, bottom: true, right: true, center: true, middle: true }}
           elementSnapDirections={{ top: true, left: true, bottom: true, right: true, center: true, middle: true }}
           snapTarget={snapTargets || undefined}
-          snapGridWidth={8}
-          snapGridHeight={8}
+          snapGridWidth={10}
+          snapGridHeight={10}
           snapCenter={true}
           isDisplaySnapDigit={true}
           isDisplayInnerSnapDigit={true}
           snapDigit={0}
           horizontalGuidelines={[]}
           verticalGuidelines={[]}
-          snapThreshold={6}
+          snapThreshold={5}
           keepRatio={shiftHeld}
           throttleDrag={0}
           throttleResize={0}
           throttleRotate={0}
           renderDirections={['nw', 'n', 'ne', 'w', 'e', 'sw', 's', 'se']}
           edge={false}
-          zoom={1}
+          zoom={1 / canvas.scale}
           origin={false}
           padding={{ left: 0, top: 0, right: 0, bottom: 0 }}
           useResizeObserver={true}
           onDragStart={({ target: t }) => {
             pushHistory()
             const id = (t as HTMLElement).getAttribute('data-element-id')
+            draggedIdRef.current = id
+            dropTargetRef.current = null
             if (id) setDraggingId(id)
           }}
           onDrag={({ target: t, left, top, clientX, clientY }) => {
@@ -209,7 +225,6 @@ export default function SelectionManager({ containerRef }: Props) {
             if (!el) return
             const parent = el.parentId ? elements[el.parentId] : null
 
-            // Auto-layout child → reorder mode (don't move absolutely; show indicator)
             if (parent?.autoLayout?.enabled) {
               const horizontal = parent.autoLayout.direction === 'horizontal'
               const siblingIds = parent.children.filter((c) => c !== id)
@@ -244,19 +259,52 @@ export default function SelectionManager({ containerRef }: Props) {
               return
             }
 
-            // Absolute element → normal move
             moveElement(id, left, top)
             const r = (t as HTMLElement).getBoundingClientRect()
-            setDimLabel({ x: r.left + r.width / 2, y: r.bottom + 8, text: `${Math.round(el.width)} × ${Math.round(el.height)}` })
+            setDimLabel({ x: r.left + r.width / 2, y: r.bottom + 8 / canvas.scale, text: `${Math.round(el.width)} × ${Math.round(el.height)}` })
+
+            // Drag-to-nest: highlight the frame under the cursor if it would
+            // become a new parent (only for single-element drags).
+            if (targets.length === 1) {
+              const container = findContainerAt(clientX, clientY, elements, id)
+              const next = container && container !== (el.parentId ?? null) ? container : null
+              dropTargetRef.current = next
+              setDropTargetId(next)
+            }
           }}
           onDragEnd={() => {
             setDimLabel(null)
             setDraggingId(null)
+            const draggedId = draggedIdRef.current
+            const newParentId = dropTargetRef.current
+            draggedIdRef.current = null
+            dropTargetRef.current = null
+            setDropTargetId(null)
+
             if (reorderTarget.current) {
               const { parentId, childId, beforeId } = reorderTarget.current
               reorderChild(parentId, childId, beforeId)
               reorderTarget.current = null
               setInsertionLine(null)
+              return
+            }
+
+            // Drag-to-nest: reparent into the hovered frame, converting the
+            // element's absolute canvas position into the new parent's space so
+            // it stays visually put.
+            if (draggedId && newParentId) {
+              const all = useEditorStore.getState().elements
+              const el = all[draggedId]
+              const parent = all[newParentId]
+              if (el && parent && newParentId !== el.parentId) {
+                const childAbs = getAbsolutePos(draggedId, all)
+                const parentAbs = getAbsolutePos(newParentId, all)
+                updateElementRef.current(draggedId, {
+                  parentId: newParentId,
+                  x: childAbs.x - parentAbs.x,
+                  y: childAbs.y - parentAbs.y,
+                })
+              }
             }
           }}
           onResizeStart={({ target: t }) => {
@@ -274,7 +322,6 @@ export default function SelectionManager({ containerRef }: Props) {
             if (!el) return
             const changes: { width: number; height: number; x?: number; y?: number } = { width, height }
             if (altHeld.current && resizeStartCenter.current) {
-              // Scale about the element's fixed center regardless of which handle is dragged.
               changes.x = resizeStartCenter.current.x - width / 2
               changes.y = resizeStartCenter.current.y - height / 2
             } else {
@@ -283,7 +330,7 @@ export default function SelectionManager({ containerRef }: Props) {
             }
             updateElement(id, changes)
             const r = (t as HTMLElement).getBoundingClientRect()
-            setDimLabel({ x: r.left + r.width / 2, y: r.bottom + 8, text: `${Math.round(width)} × ${Math.round(height)}` })
+            setDimLabel({ x: r.left + r.width / 2, y: r.bottom + 8 / canvas.scale, text: `${Math.round(width)} × ${Math.round(height)}` })
           }}
           onResizeEnd={() => { setDimLabel(null); resizeStartCenter.current = null }}
           onRotateStart={() => pushHistory()}
@@ -292,17 +339,16 @@ export default function SelectionManager({ containerRef }: Props) {
             if (id) {
               updateElement(id, { rotation })
               const r = (t as HTMLElement).getBoundingClientRect()
-              setDimLabel({ x: r.left + r.width / 2, y: r.bottom + 8, text: `${Math.round(rotation)}°` })
+              setDimLabel({ x: r.left + r.width / 2, y: r.bottom + 8 / canvas.scale, text: `${Math.round(rotation)}°` })
             }
           }}
           onRotateEnd={() => setDimLabel(null)}
-          controlPadding={-2}
-          controlWidth={6}
-          controlHeight={6}
+          controlPadding={0}
+          controlWidth={8}
+          controlHeight={8}
         />
       )}
 
-      {/* Alignment bar for multi-select */}
       {alignBarPos && selectedIds.length >= 2 && (
         <div
           className="fixed pointer-events-auto"
@@ -317,6 +363,26 @@ export default function SelectionManager({ containerRef }: Props) {
         </div>
       )}
 
+      {dropTargetId && (() => {
+        const node = document.querySelector(`[data-element-id="${dropTargetId}"]`)
+        if (!node) return null
+        const r = node.getBoundingClientRect()
+        return (
+          <div
+            className="fixed pointer-events-none z-[240]"
+            style={{
+              left: r.left,
+              top: r.top,
+              width: r.width,
+              height: r.height,
+              border: '2px solid var(--accent)',
+              borderRadius: 4,
+              boxShadow: 'inset 0 0 0 9999px rgba(0,153,255,0.06)',
+            }}
+          />
+        )
+      })()}
+
       {insertionLine && (
         <div
           className="fixed pointer-events-none z-[250]"
@@ -325,9 +391,9 @@ export default function SelectionManager({ containerRef }: Props) {
             top: insertionLine.y,
             width: insertionLine.w,
             height: insertionLine.h,
-            background: '#E040FB',
+            background: 'var(--accent)',
             borderRadius: 1,
-            boxShadow: '0 0 4px rgba(224,64,251,0.8)',
+            boxShadow: '0 0 4px rgba(0,153,255,0.6)',
           }}
         />
       )}
@@ -343,9 +409,12 @@ export default function SelectionManager({ containerRef }: Props) {
             color: '#fff',
             fontSize: 11,
             fontWeight: 500,
-            padding: '2px 6px',
+            padding: '2px 8px',
             borderRadius: 4,
             whiteSpace: 'nowrap',
+            fontVariantNumeric: 'tabular-nums',
+            letterSpacing: '0.01em',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
           }}
         >
           {dimLabel.text}

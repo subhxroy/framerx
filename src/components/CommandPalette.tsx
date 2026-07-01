@@ -69,7 +69,7 @@ export default function CommandPalette({ onClose }: Props) {
         id: 'duplicate', label: 'Duplicate', description: 'Ctrl+D', icon: <Copy size={13} />,
         category: 'command',
         action: () => {
-          if (selectedIds.length > 0) selectedIds.forEach(id => duplicateElement(id))
+          if (selectedIds.length > 0) [...selectedIds].reverse().forEach(id => duplicateElement(id))
           close()
         },
       },

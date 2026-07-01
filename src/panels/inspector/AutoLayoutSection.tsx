@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { useEditorStore } from '@/store/editorStore'
+import { useInstanceUpdate } from './useInstanceUpdate'
 import NumberInput from './NumberInput'
 
 const dirIcons = {
@@ -10,8 +11,8 @@ const dirIcons = {
 export default function AutoLayoutSection() {
   const selectedIds = useEditorStore((s) => s.selectedIds)
   const elements = useEditorStore((s) => s.elements)
-  const updateElement = useEditorStore((s) => s.updateElement)
   const pushHistory = useEditorStore((s) => s.pushHistory)
+  const applyChanges = useInstanceUpdate()
 
   const el = selectedIds.length === 1 ? elements[selectedIds[0]] : null
   const al = el?.autoLayout
@@ -29,11 +30,11 @@ export default function AutoLayoutSection() {
         wrap: false,
       }
       pushHistory()
-      updateElement(el.id, {
+      applyChanges(el, {
         autoLayout: { ...current, ...changes },
       })
     },
-    [el, pushHistory, updateElement]
+    [el, pushHistory, applyChanges]
   )
 
   const handleToggle = useCallback(() => {

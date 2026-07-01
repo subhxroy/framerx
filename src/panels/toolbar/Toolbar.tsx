@@ -12,24 +12,22 @@ import {
   Smartphone, Plus, Hand,
 } from 'lucide-react'
 
-/* ─── Tool definitions ─── */
 const TOOLS: { id: Tool; label: string; shortcut: string; icon: React.ReactNode }[] = [
-  { id: 'select',  label: 'Select',    shortcut: 'V', icon: <MousePointer2 size={14} /> },
-  { id: 'frame',   label: 'Frame',     shortcut: 'F', icon: <Square size={14} strokeDasharray="3 2" /> },
-  { id: 'text',    label: 'Text',      shortcut: 'T', icon: <Type size={14} /> },
-  { id: 'image',   label: 'Image',     shortcut: 'I', icon: <ImageIcon size={14} /> },
-  { id: 'rect',    label: 'Rectangle', shortcut: 'R', icon: <Square size={14} /> },
-  { id: 'ellipse', label: 'Ellipse',   shortcut: 'O', icon: <Circle size={14} /> },
+  { id: 'select',  label: 'Select',    shortcut: 'V', icon: <MousePointer2 size={15} strokeWidth={1.5} /> },
+  { id: 'frame',   label: 'Frame',     shortcut: 'F', icon: <Square size={15} strokeWidth={1.5} strokeDasharray="3 2" /> },
+  { id: 'text',    label: 'Text',      shortcut: 'T', icon: <Type size={15} strokeWidth={1.5} /> },
+  { id: 'image',   label: 'Image',     shortcut: 'I', icon: <ImageIcon size={15} strokeWidth={1.5} /> },
+  { id: 'rect',    label: 'Rectangle', shortcut: 'R', icon: <Square size={15} strokeWidth={1.5} /> },
+  { id: 'ellipse', label: 'Ellipse',   shortcut: 'O', icon: <Circle size={15} strokeWidth={1.5} /> },
 ]
 
-/* ─── Breakpoint definitions ─── */
 const BREAKPOINTS: { id: Breakpoint; label: string; width: number; icon: React.ReactNode }[] = [
-  { id: 'desktop', label: 'Desktop', width: 1280, icon: <Monitor size={12} /> },
-  { id: 'tablet',  label: 'Tablet',  width: 810,  icon: <Tablet size={12} /> },
-  { id: 'mobile',  label: 'Phone',   width: 390,  icon: <Smartphone size={12} /> },
+  { id: 'desktop', label: 'Desktop', width: 1280, icon: <Monitor size={12} strokeWidth={1.5} /> },
+  { id: 'tablet',  label: 'Tablet',  width: 810,  icon: <Tablet size={12} strokeWidth={1.5} /> },
+  { id: 'mobile',  label: 'Phone',   width: 390,  icon: <Smartphone size={12} strokeWidth={1.5} /> },
 ]
 
-const ZOOM_PRESETS = [10, 25, 50, 75, 100, 150, 200, 400]
+const ZOOM_PRESETS = [2, 10, 25, 50, 75, 100, 150, 200, 400, 800, 1600, 3200, 6400]
 
 interface Props {
   saveStatus?: SaveStatus
@@ -62,7 +60,6 @@ export default function Toolbar({ saveStatus = 'saved' }: Props) {
     .toUpperCase()
     .slice(0, 2)
 
-  /* Close zoom dropdown on outside click */
   useEffect(() => {
     if (!showZoomMenu) return
     const handler = (e: MouseEvent) => {
@@ -85,38 +82,38 @@ export default function Toolbar({ saveStatus = 'saved' }: Props) {
       <header style={{
         display: 'flex',
         alignItems: 'center',
-        height: 44,
+        height: 40,
         background: 'var(--toolbar-bg)',
         borderBottom: '1px solid var(--border)',
-        paddingInline: 10,
+        paddingInline: 8,
         gap: 0,
         flexShrink: 0,
         position: 'relative',
         zIndex: 10,
       }}>
 
-        {/* ── LEFT: Logo + Divider + Tools ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+        {/* ── LEFT: Logo + Tools ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
 
-          {/* Framer Logo mark */}
+          {/* Framer Logo */}
           <button style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 30, height: 30, borderRadius: 6, border: 'none',
+            width: 28, height: 28, borderRadius: 6, border: 'none',
             background: 'transparent', cursor: 'pointer', flexShrink: 0,
             transition: 'background 80ms',
           }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#252525')}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
-            <svg width="12" height="16" viewBox="0 0 28 38" fill="none">
-              <path d="M0 0H28V14H14L0 0Z" fill="#ececec" />
-              <path d="M0 14H14L28 28H0V14Z" fill="#ececec" />
-              <path d="M0 28H14V42L0 28Z" fill="#ececec" />
+            <svg width="14" height="18" viewBox="0 0 14 18" fill="none">
+              <path d="M0 0H14V6H7L0 0Z" fill="#e8e8e8" />
+              <path d="M0 6H7L14 12H0V6Z" fill="#e8e8e8" />
+              <path d="M0 12H7V18L0 12Z" fill="#e8e8e8" />
             </svg>
           </button>
 
-          {/* Vertical separator */}
-          <div style={{ width: 1, height: 18, background: '#252525', marginInline: 4 }} />
+          {/* Separator */}
+          <div style={{ width: 1, height: 16, background: 'var(--border)', marginInline: 4 }} />
 
           {/* Tool buttons */}
           {TOOLS.map(tool => (
@@ -127,47 +124,40 @@ export default function Toolbar({ saveStatus = 'saved' }: Props) {
                   width: 28, height: 28,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   borderRadius: 5, border: 'none', cursor: 'pointer',
-                  background: activeTool === tool.id ? 'rgba(255,255,255,0.10)' : 'transparent',
-                  color: activeTool === tool.id ? '#ececec' : '#666',
+                  background: activeTool === tool.id ? 'rgba(255,255,255,0.08)' : 'transparent',
+                  color: activeTool === tool.id ? '#e8e8e8' : '#555',
                   transition: 'background 80ms, color 80ms',
                 }}
                 onMouseEnter={e => {
                   setTooltip(tool.id)
                   if (activeTool !== tool.id) {
-                    e.currentTarget.style.background = '#252525'
-                    e.currentTarget.style.color = '#aaa'
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
+                    e.currentTarget.style.color = '#999'
                   }
                 }}
                 onMouseLeave={e => {
                   setTooltip(null)
                   if (activeTool !== tool.id) {
                     e.currentTarget.style.background = 'transparent'
-                    e.currentTarget.style.color = '#666'
+                    e.currentTarget.style.color = '#555'
                   }
                 }}
               >
                 {tool.icon}
               </button>
-              {/* Tooltip */}
               {tooltip === tool.id && (
-                <div style={{
-                  position: 'absolute', top: 34, left: '50%', transform: 'translateX(-50%)',
-                  background: '#1c1c1c', border: '1px solid #2e2e2e',
-                  borderRadius: 5, padding: '4px 9px', whiteSpace: 'nowrap',
-                  fontSize: 11, color: '#e0e0e0', pointerEvents: 'none', zIndex: 200,
-                  boxShadow: 'var(--shadow-popup)',
-                  display: 'flex', alignItems: 'center', gap: 6,
+                <div className="framer-tooltip" style={{
+                  position: 'absolute', top: 36, left: '50%', transform: 'translateX(-50%)',
                 }}>
                   {tool.label}
-                  <span style={{
-                    background: '#2a2a2a', borderRadius: 3,
-                    padding: '1px 5px', fontSize: 10, color: '#666',
-                    fontFamily: 'var(--font-mono)',
-                  }}>{tool.shortcut}</span>
+                  <span className="shortcut">{tool.shortcut}</span>
                 </div>
               )}
             </div>
           ))}
+
+          {/* Separator */}
+          <div style={{ width: 1, height: 16, background: 'var(--border)', marginInline: 4 }} />
 
           {/* Hand / pan tool */}
           <button
@@ -175,80 +165,74 @@ export default function Toolbar({ saveStatus = 'saved' }: Props) {
               width: 28, height: 28,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               borderRadius: 5, border: 'none', cursor: 'pointer',
-              background: 'transparent', color: '#555',
+              background: 'transparent', color: '#444',
               transition: 'background 80ms, color 80ms',
             }}
             title="Pan (Space)"
-            onMouseEnter={e => { e.currentTarget.style.background = '#252525'; e.currentTarget.style.color = '#aaa' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#555' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#999' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#444' }}
           >
-            <Hand size={14} />
+            <Hand size={15} strokeWidth={1.5} />
           </button>
         </div>
 
-        {/* ── CENTER: Breakpoint tabs ── */}
+        {/* ── CENTER: Breakpoint tabs — Framer segmented control ── */}
         <div style={{
           position: 'absolute', left: '50%', transform: 'translateX(-50%)',
-          display: 'flex', alignItems: 'center', gap: 1,
+          display: 'flex', alignItems: 'center', gap: 0,
+          background: 'var(--surface-2)',
+          borderRadius: 6,
+          padding: 2,
         }}>
-          {BREAKPOINTS.map((bp, i) => {
+          {BREAKPOINTS.map((bp) => {
             const isActive = activeBreakpoint === bp.id
             return (
               <button
                 key={bp.id}
                 onClick={() => handleBreakpoint(bp.id)}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  padding: '4px 10px', height: 28,
-                  borderRadius: i === 0 ? '6px 0 0 6px' : i === BREAKPOINTS.length - 1 ? '0 6px 6px 0' : '0',
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  padding: '3px 8px', height: 24,
+                  borderRadius: 4,
                   border: 'none', cursor: 'pointer',
-                  background: isActive ? 'rgba(255,255,255,0.08)' : 'transparent',
-                  color: isActive ? '#e8e8e8' : '#4a4a4a',
+                  background: isActive ? 'var(--surface-4)' : 'transparent',
+                  color: isActive ? '#e8e8e8' : '#666',
                   fontSize: 11, fontWeight: isActive ? 500 : 400,
-                  transition: 'background 80ms, color 80ms',
-                  position: 'relative',
+                  transition: 'all 80ms',
+                  whiteSpace: 'nowrap',
                 }}
-                onMouseEnter={e => { if (!isActive) { e.currentTarget.style.color = '#888'; e.currentTarget.style.background = 'rgba(255,255,255,0.04)' } }}
-                onMouseLeave={e => { if (!isActive) { e.currentTarget.style.color = '#4a4a4a'; e.currentTarget.style.background = 'transparent' } }}
               >
-                <span style={{ opacity: isActive ? 1 : 0.6 }}>{bp.icon}</span>
+                <span style={{ opacity: isActive ? 1 : 0.5 }}>{bp.icon}</span>
                 <span>{bp.label}</span>
                 <span style={{
                   fontSize: 10,
-                  color: isActive ? '#666' : '#333',
+                  color: isActive ? '#888' : '#444',
                   fontVariantNumeric: 'tabular-nums',
                 }}>{bp.width}</span>
-                {/* Active indicator dot */}
-                {isActive && (
-                  <span style={{
-                    position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)',
-                    width: 3, height: 3, borderRadius: '50%',
-                    background: 'rgba(255,255,255,0.35)',
-                  }} />
-                )}
               </button>
             )
           })}
 
-          {/* Add breakpoint */}
+          <div style={{ width: 1, height: 14, background: 'var(--border)', marginInline: 2 }} />
+
           <button
             style={{
-              width: 22, height: 22, borderRadius: 4,
+              width: 20, height: 20, borderRadius: 4,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              border: 'none', cursor: 'pointer', marginLeft: 4,
-              background: 'transparent', color: '#3a3a3a',
-              transition: 'background 80ms, color 80ms',
+              border: 'none', cursor: 'pointer',
+              background: 'transparent', color: '#444',
+              transition: 'all 80ms',
             }}
             title="Add breakpoint"
-            onMouseEnter={e => { e.currentTarget.style.background = '#252525'; e.currentTarget.style.color = '#666' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#3a3a3a' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#888' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#444' }}
           >
-            <Plus size={12} />
+            <Plus size={11} />
           </button>
         </div>
 
         {/* ── RIGHT: Zoom, Preview, Avatar, Publish ── */}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
 
           {/* Save status */}
           {saveStatus !== 'saved' && (
@@ -263,23 +247,23 @@ export default function Toolbar({ saveStatus = 'saved' }: Props) {
               onClick={() => setShowZoomMenu(v => !v)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 3,
-                padding: '3px 7px', borderRadius: 5, border: 'none',
-                background: showZoomMenu ? '#252525' : 'transparent',
-                color: '#555', cursor: 'pointer', fontSize: 11,
+                padding: '3px 6px', borderRadius: 4, border: 'none',
+                background: showZoomMenu ? 'var(--surface-3)' : 'transparent',
+                color: '#666', cursor: 'pointer', fontSize: 11,
                 fontVariantNumeric: 'tabular-nums',
                 transition: 'background 80ms, color 80ms',
               }}
-              onMouseEnter={e => { if (!showZoomMenu) { e.currentTarget.style.background = '#252525'; e.currentTarget.style.color = '#888' } }}
-              onMouseLeave={e => { if (!showZoomMenu) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#555' } }}
+              onMouseEnter={e => { if (!showZoomMenu) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#999' } }}
+              onMouseLeave={e => { if (!showZoomMenu) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#666' } }}
             >
               {zoomPct}%
-              <ChevronDown size={9} />
+              <ChevronDown size={10} />
             </button>
             {showZoomMenu && (
               <div style={{
-                position: 'absolute', right: 0, top: 32, zIndex: 300,
-                background: '#1c1c1c', border: '1px solid #2e2e2e',
-                borderRadius: 7, padding: 4, minWidth: 110,
+                position: 'absolute', right: 0, top: 30, zIndex: 300,
+                background: '#1a1a1a', border: '1px solid #2a2a2a',
+                borderRadius: 6, padding: 3, minWidth: 120,
                 boxShadow: 'var(--shadow-dropdown)',
               }}>
                 {ZOOM_PRESETS.map(pct => (
@@ -288,18 +272,18 @@ export default function Toolbar({ saveStatus = 'saved' }: Props) {
                     onClick={() => { setCanvas({ scale: pct / 100 }); setShowZoomMenu(false) }}
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      width: '100%', padding: '5px 10px', borderRadius: 5,
+                      width: '100%', padding: '4px 8px', borderRadius: 4,
                       border: 'none', cursor: 'pointer', fontSize: 11,
-                      background: zoomPct === pct ? '#252525' : 'transparent',
-                      color: zoomPct === pct ? '#ececec' : '#888',
+                      background: zoomPct === pct ? 'var(--surface-3)' : 'transparent',
+                      color: zoomPct === pct ? '#e8e8e8' : '#888',
                       transition: 'background 60ms',
                       fontFamily: 'var(--font-ui)',
                     }}
-                    onMouseEnter={e => { if (zoomPct !== pct) e.currentTarget.style.background = '#222' }}
+                    onMouseEnter={e => { if (zoomPct !== pct) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
                     onMouseLeave={e => { if (zoomPct !== pct) e.currentTarget.style.background = 'transparent' }}
                   >
                     {pct}%
-                    {zoomPct === pct && <span style={{ fontSize: 10, color: '#0091ff' }}>✓</span>}
+                    {zoomPct === pct && <span style={{ fontSize: 10, color: 'var(--accent)' }}>✓</span>}
                   </button>
                 ))}
               </div>
@@ -307,7 +291,7 @@ export default function Toolbar({ saveStatus = 'saved' }: Props) {
           </div>
 
           {/* Separator */}
-          <div style={{ width: 1, height: 16, background: '#252525', marginInline: 2 }} />
+          <div style={{ width: 1, height: 14, background: 'var(--border)', marginInline: 2 }} />
 
           {/* Preview toggle */}
           {previewMode ? (
@@ -315,13 +299,13 @@ export default function Toolbar({ saveStatus = 'saved' }: Props) {
               onClick={() => setPreviewMode(false)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 5,
-                padding: '4px 10px', borderRadius: 6, border: 'none',
-                background: '#252525', color: '#e0e0e0',
+                padding: '3px 8px', borderRadius: 5, border: 'none',
+                background: 'var(--surface-3)', color: '#e0e0e0',
                 cursor: 'pointer', fontSize: 11, fontWeight: 500,
                 transition: 'background 80ms',
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#2e2e2e')}
-              onMouseLeave={e => (e.currentTarget.style.background = '#252525')}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-4)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface-3)')}
             >
               <X size={11} /> Exit Preview
             </button>
@@ -335,43 +319,42 @@ export default function Toolbar({ saveStatus = 'saved' }: Props) {
                 background: 'transparent', color: '#555',
                 cursor: 'pointer', transition: 'background 80ms, color 80ms',
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#252525'; e.currentTarget.style.color = '#aaa' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#999' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#555' }}
             >
-              <Eye size={14} />
+              <Eye size={15} strokeWidth={1.5} />
             </button>
           )}
 
           {/* User avatar */}
           <div style={{
-            width: 26, height: 26, borderRadius: '50%',
+            width: 24, height: 24, borderRadius: '50%',
             background: 'linear-gradient(135deg, #667eea, #764ba2)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 10, fontWeight: 700, color: '#fff',
+            fontSize: 10, fontWeight: 600, color: '#fff',
             flexShrink: 0, cursor: 'pointer',
-            border: '1.5px solid rgba(255,255,255,0.12)',
-            letterSpacing: '0.03em',
+            letterSpacing: '0.02em',
           }}>
             {userInitials}
           </div>
 
           {/* Separator */}
-          <div style={{ width: 1, height: 16, background: '#252525', marginInline: 2 }} />
+          <div style={{ width: 1, height: 14, background: 'var(--border)', marginInline: 2 }} />
 
           {/* Publish */}
           <button
             onClick={() => setShowPublish(true)}
             style={{
               display: 'flex', alignItems: 'center', gap: 5,
-              padding: '5px 12px', borderRadius: 6, border: 'none',
-              background: '#0091ff', color: '#fff',
+              padding: '4px 10px', borderRadius: 6, border: 'none',
+              background: 'var(--accent)', color: '#fff',
               cursor: 'pointer', fontSize: 11, fontWeight: 600,
               letterSpacing: '0.01em',
-              transition: 'background 80ms, transform 80ms',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+              transition: 'background 80ms',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#0080e6' }}
-            onMouseLeave={e => { e.currentTarget.style.background = '#0091ff' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-hover)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent)' }}
           >
             <Play size={10} style={{ fill: '#fff', flexShrink: 0 }} />
             Publish

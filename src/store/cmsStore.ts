@@ -33,24 +33,45 @@ interface CMSStore {
   activeProjectId: string | null
   collections: Record<string, CMSCollection>
   items: Record<string, CMSItem[]>
+  error: string | null
 
   setActiveProject: (id: string) => void
+  clearError: () => void
   loadCMSData: (projectId: string) => Promise<void>
 
-  addCollection: (name: string) => string
-  updateCollection: (id: string, changes: Partial<CMSCollection>) => void
-  deleteCollection: (id: string) => void
+  addCollection: (name: string) => Promise<string>
+  updateCollection: (id: string, changes: Partial<CMSCollection>) => Promise<void>
+  deleteCollection: (id: string) => Promise<void>
 
   addField: (collectionId: string, field: Omit<CMSField, 'id'>) => string
   updateField: (collectionId: string, fieldId: string, changes: Partial<CMSField>) => void
   removeField: (collectionId: string, fieldId: string) => void
 
-  addItem: (collectionId: string, values: Record<string, unknown>) => string
-  updateItem: (collectionId: string, itemId: string, values: Record<string, unknown>) => void
-  deleteItem: (collectionId: string, itemId: string) => void
+  addItem: (collectionId: string, values: Record<string, unknown>) => Promise<string>
+  updateItem: (collectionId: string, itemId: string, values: Record<string, unknown>) => Promise<void>
+  deleteItem: (collectionId: string, itemId: string) => Promise<void>
 
   getCollection: (id: string) => CMSCollection | undefined
   getItems: (collectionId: string) => CMSItem[]
+}
+
+const CMS_COLLECTIONS_KEY = 'framer_cms_collections'
+const CMS_ITEMS_KEY = 'framer_cms_items'
+
+function saveToLocal(collections: Record<string, CMSCollection>, items: Record<string, CMSItem[]>, projectId: string) {
+  try {
+    localStorage.setItem(CMS_COLLECTIONS_KEY + '_' + projectId, JSON.stringify(collections))
+    localStorage.setItem(CMS_ITEMS_KEY + '_' + projectId, JSON.stringify(items))
+  } catch { /* quota exceeded */ }
+}
+
+function loadFromLocal(projectId: string): { collections: Record<string, CMSCollection>; items: Record<string, CMSItem[]> } | null {
+  try {
+    const c = localStorage.getItem(CMS_COLLECTIONS_KEY + '_' + projectId)
+    const i = localStorage.getItem(CMS_ITEMS_KEY + '_' + projectId)
+    if (c && i) return { collections: JSON.parse(c), items: JSON.parse(i) }
+  } catch { /* invalid data */ }
+  return null
 }
 
 const genId = () => crypto.randomUUID()
@@ -59,47 +80,64 @@ export const useCMSStore = create<CMSStore>((set, get) => ({
   activeProjectId: null,
   collections: {},
   items: {},
+  error: null,
 
   setActiveProject: (id) => set({ activeProjectId: id }),
+  clearError: () => set({ error: null }),
 
   loadCMSData: async (projectId) => {
     set({ activeProjectId: projectId, collections: {}, items: {} })
-    if (!isSupabaseConfigured || !supabase) return
 
-    const { data: cols } = await supabase.from('cms_collections').select('*').eq('project_id', projectId)
-    if (!cols) return
+    if (isSupabaseConfigured && supabase) {
+      const { data: cols } = await supabase.from('cms_collections').select('*').eq('project_id', projectId)
+      if (cols) {
+        const collections: Record<string, CMSCollection> = {}
+        for (const c of cols) {
+          collections[c.id] = {
+            id: c.id,
+            name: c.name,
+            fields: c.fields || [],
+            createdAt: new Date(c.created_at).getTime(),
+          }
+        }
 
-    const collections: Record<string, CMSCollection> = {}
-    for (const c of cols) {
-      collections[c.id] = {
-        id: c.id,
-        name: c.name,
-        fields: c.fields || [],
-        createdAt: new Date(c.created_at).getTime(),
+        const collIds = cols.map(c => c.id)
+        if (collIds.length > 0) {
+          const { data: itms } = await supabase.from('cms_items').select('*').in('collection_id', collIds)
+          const items: Record<string, CMSItem[]> = {}
+          if (itms) {
+            for (const i of itms) {
+              if (!items[i.collection_id]) items[i.collection_id] = []
+              items[i.collection_id].push({
+                id: i.id,
+                collectionId: i.collection_id,
+                values: i.values || {},
+                createdAt: new Date(i.created_at).getTime(),
+              })
+            }
+          }
+          set({ collections, items })
+          saveToLocal(collections, items, projectId)
+          return
+        } else {
+          set({ collections, items: {} })
+          saveToLocal(collections, {}, projectId)
+          return
+        }
       }
     }
 
-    const { data: itms } = await supabase.from('cms_items').select('*').in('collection_id', cols.map(c => c.id))
-    const items: Record<string, CMSItem[]> = {}
-    
-    if (itms) {
-      for (const i of itms) {
-        if (!items[i.collection_id]) items[i.collection_id] = []
-        items[i.collection_id].push({
-          id: i.id,
-          collectionId: i.collection_id,
-          values: i.values || {},
-          createdAt: new Date(i.created_at).getTime(),
-        })
-      }
+    // localStorage fallback
+    const local = loadFromLocal(projectId)
+    if (local) {
+      set({ collections: local.collections, items: local.items })
     }
-
-    set({ collections, items })
   },
 
-  addCollection: (name) => {
+  addCollection: async (name) => {
     const id = genId()
     const { activeProjectId } = get()
+    set({ error: null })
     
     // Optimistic UI
     set((s) => ({
@@ -109,18 +147,26 @@ export const useCMSStore = create<CMSStore>((set, get) => ({
 
     // DB Update
     if (activeProjectId && isSupabaseConfigured && supabase) {
-      supabase.from('cms_collections').insert({
+      const { error } = await supabase.from('cms_collections').insert({
         id, project_id: activeProjectId, name, fields: []
-      }).then(({ error }) => { if (error) console.error(error) })
+      })
+      if (error) set({ error: error.message })
+    }
+
+    // localStorage persistence
+    if (activeProjectId) {
+      const s = get()
+      saveToLocal(s.collections, s.items, activeProjectId)
     }
 
     return id
   },
 
-  updateCollection: (id, changes) => {
+  updateCollection: async (id, changes) => {
     const { collections } = get()
     const c = collections[id]
     if (!c) return
+    set({ error: null })
 
     // Optimistic UI
     set((s) => ({
@@ -133,13 +179,18 @@ export const useCMSStore = create<CMSStore>((set, get) => ({
       if (changes.name !== undefined) payload.name = changes.name
       if (changes.fields !== undefined) payload.fields = changes.fields
       if (Object.keys(payload).length > 0) {
-        supabase.from('cms_collections').update(payload).eq('id', id)
-          .then(({ error }) => { if (error) console.error(error) })
+        const { error } = await supabase.from('cms_collections').update(payload).eq('id', id)
+        if (error) set({ error: error.message })
       }
     }
+
+    // localStorage persistence
+    const s = get()
+    if (s.activeProjectId) saveToLocal(s.collections, s.items, s.activeProjectId)
   },
 
-  deleteCollection: (id) => {
+  deleteCollection: async (id) => {
+    set({ error: null })
     // Optimistic UI
     set((s) => {
       const { [id]: _, ...rest } = s.collections
@@ -149,9 +200,13 @@ export const useCMSStore = create<CMSStore>((set, get) => ({
 
     // DB Update
     if (isSupabaseConfigured && supabase) {
-      supabase.from('cms_collections').delete().eq('id', id)
-        .then(({ error }) => { if (error) console.error(error) })
+      const { error } = await supabase.from('cms_collections').delete().eq('id', id)
+      if (error) set({ error: error.message })
     }
+
+    // localStorage persistence
+    const s = get()
+    if (s.activeProjectId) saveToLocal(s.collections, s.items, s.activeProjectId)
   },
 
   addField: (collectionId, field) => {
@@ -181,8 +236,9 @@ export const useCMSStore = create<CMSStore>((set, get) => ({
     })
   },
 
-  addItem: (collectionId, values) => {
+  addItem: async (collectionId, values) => {
     const id = genId()
+    set({ error: null })
     
     // Optimistic UI
     set((s) => {
@@ -192,15 +248,21 @@ export const useCMSStore = create<CMSStore>((set, get) => ({
 
     // DB Update
     if (isSupabaseConfigured && supabase) {
-      supabase.from('cms_items').insert({
+      const { error } = await supabase.from('cms_items').insert({
         id, collection_id: collectionId, values
-      }).then(({ error }) => { if (error) console.error(error) })
+      })
+      if (error) set({ error: error.message })
     }
+
+    // localStorage persistence
+    const s = get()
+    if (s.activeProjectId) saveToLocal(s.collections, s.items, s.activeProjectId)
 
     return id
   },
 
-  updateItem: (collectionId, itemId, values) => {
+  updateItem: async (collectionId, itemId, values) => {
+    set({ error: null })
     // Optimistic UI
     set((s) => {
       const items = s.items[collectionId] || []
@@ -214,12 +276,17 @@ export const useCMSStore = create<CMSStore>((set, get) => ({
 
     // DB Update
     if (isSupabaseConfigured && supabase) {
-      supabase.from('cms_items').update({ values }).eq('id', itemId)
-        .then(({ error }) => { if (error) console.error(error) })
+      const { error } = await supabase.from('cms_items').update({ values }).eq('id', itemId)
+      if (error) set({ error: error.message })
     }
+
+    // localStorage persistence
+    const s = get()
+    if (s.activeProjectId) saveToLocal(s.collections, s.items, s.activeProjectId)
   },
 
-  deleteItem: (collectionId, itemId) => {
+  deleteItem: async (collectionId, itemId) => {
+    set({ error: null })
     // Optimistic UI
     set((s) => ({
       items: {
@@ -230,9 +297,13 @@ export const useCMSStore = create<CMSStore>((set, get) => ({
 
     // DB Update
     if (isSupabaseConfigured && supabase) {
-      supabase.from('cms_items').delete().eq('id', itemId)
-        .then(({ error }) => { if (error) console.error(error) })
+      const { error } = await supabase.from('cms_items').delete().eq('id', itemId)
+      if (error) set({ error: error.message })
     }
+
+    // localStorage persistence
+    const s = get()
+    if (s.activeProjectId) saveToLocal(s.collections, s.items, s.activeProjectId)
   },
 
   getCollection: (id) => get().collections[id],

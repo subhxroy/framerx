@@ -5,7 +5,7 @@ interface Props {
   elementId: string
 }
 
-const triggers = ['hover', 'tap', 'appear'] as const
+const triggers = ['hover', 'tap', 'appear', 'inview'] as const
 const animProps = ['opacity', 'scale', 'x', 'y', 'rotate'] as const
 
 export default function AnimationSection({ elementId }: Props) {
@@ -130,7 +130,7 @@ export default function AnimationSection({ elementId }: Props) {
                 }}
                 onClick={() => addInteraction(t)}
               >
-                {t === 'hover' ? 'On Hover' : t === 'tap' ? 'On Tap' : 'On Appear'}
+                {t === 'hover' ? 'On Hover' : t === 'tap' ? 'On Tap' : t === 'appear' ? 'On Appear' : 'On Scroll'}
               </button>
             ))}
         </div>
@@ -145,7 +145,7 @@ export default function AnimationSection({ elementId }: Props) {
           >
             <div className="flex items-center justify-between mb-2 pb-1" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
               <span className="text-[11px] font-semibold" style={{ color: 'var(--accent)' }}>
-                {int.trigger === 'hover' ? 'On Hover' : int.trigger === 'tap' ? 'On Tap' : 'On Appear'}
+                {int.trigger === 'hover' ? 'On Hover' : int.trigger === 'tap' ? 'On Tap' : int.trigger === 'appear' ? 'On Appear' : 'On Scroll'}
               </span>
               <button
                 style={{ 
