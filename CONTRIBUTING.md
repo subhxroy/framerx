@@ -1,6 +1,6 @@
-# Contributing to Framer Clone
+# Contributing to FramerX
 
-Thank you for your interest in contributing! This document outlines the process for contributing to this project.
+Thank you for your interest in contributing!
 
 ## Table of Contents
 
@@ -15,15 +15,15 @@ Thank you for your interest in contributing! This document outlines the process 
 
 ## Code of Conduct
 
-By participating in this project, you agree to maintain a respectful and inclusive environment for everyone.
+By participating, you agree to maintain a respectful and inclusive environment for everyone.
 
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/your-username/framer-clone.git`
+2. Clone your fork: `git clone https://github.com/your-username/framerx.git`
 3. Create a new branch: `git checkout -b feature/your-feature-name`
 4. Install dependencies: `npm install`
-5. Copy `.env.example` to `.env` and configure your Supabase credentials
+5. Copy `.env.example` to `.env` and configure Supabase credentials (optional)
 6. Start the dev server: `npm run dev`
 
 ## Development Workflow
@@ -42,7 +42,7 @@ Use conventional commit format:
 ```
 type(scope): description
 
-feat(canvas): add ruler guides
+feat(canvas): add alignment guides
 fix(layers): correct drag-and-drop reordering
 refactor(store): simplify element selection logic
 ```
@@ -62,37 +62,45 @@ The project follows a feature-based structure inside `src/`:
 
 ```
 src/
-├── app/           # Root app component and routing
-├── components/    # Reusable UI components
-│   ├── canvas/    # Canvas renderer, viewport, grid
-│   ├── panels/    # Side panels (layers, components, CMS)
-│   ├── inspector/ # Property inspector sections
-│   ├── toolbar/   # Top toolbar and tools
-│   ├── auth/      # Authentication UI
-│   ├── dashboard/ # Project dashboard
-│   └── ui/        # Shared primitives (inputs, buttons, etc.)
-├── editor/        # Editor-specific logic
+├── app/           # App root + route definitions
+├── pages/         # Auth, Dashboard, Editor pages
+├── editor/        # Canvas renderer, element system, selection
+│   ├── canvas/
+│   ├── elements/
+│   └── selection/
+├── panels/        # All side panel UIs
+│   ├── toolbar/
+│   ├── layers/
+│   ├── inspector/ # 12+ section components
+│   ├── components/
+│   ├── cms/
+│   ├── assets/
+│   ├── context/
+│   └── publish/
+├── components/    # Shared app-level components
 ├── hooks/         # Shared React hooks
-├── lib/           # Utilities, clients, export logic
-├── pages/         # Top-level page components
-├── panels/        # Panel sub-components
-└── store/         # Zustand state management
+├── lib/           # Utilities, clients, export generators
+└── store/         # Zustand state management (5 stores)
 ```
 
-### State Management
+### State Management (Zustand)
 
-The app uses **Zustand** stores:
-- `editorStore` — Core editor state (elements, selection, history, canvas)
-- `projectStore` — Project metadata and settings
-- `authStore` — Authentication state
-- `cmsStore` — CMS collections and items
+| Store | Purpose |
+|-------|---------|
+| `editorStore` | Elements tree, selection, history, component instances, canvas state |
+| `projectStore` | Project CRUD, save/load, auto-save |
+| `authStore` | Auth state, sign-in, sign-up, sign-out |
+| `cmsStore` | CMS collections, fields, items |
+| `assetsStore` | Uploaded image asset registry |
 
 ### Key Libraries
 
 - **@dnd-kit** — Drag-and-drop for layers panel and reordering
 - **react-moveable** — On-canvas element resize, rotate, and transform
 - **Selecto** — Marquee selection on canvas
-- **Motion** — Animation execution in preview mode
+- **Motion 12** — Animation execution in preview mode
+- **Zustand 5** — Lightweight state management
+- **Lucide React** — Icon set
 
 ## Coding Standards
 
@@ -110,15 +118,15 @@ The app uses **Zustand** stores:
 
 ### Styling
 
-- **Tailwind CSS** for all styling — avoid inline styles
-- Use the project's design tokens (colors, spacing, typography) via Tailwind classes
-- Follow the existing pattern for panel and toolbar styling
+- Inline styles (`style={}` objects) for dynamic, element-specific styling (canvas elements, panels)
+- Tailwind CSS utility classes for static layout and app chrome (toolbar, dashboard, auth pages)
+- Follow existing patterns — check neighboring files before introducing a new approach
 
 ### State
 
 - Keep state as close to where it's used as possible
 - Use Zustand for global state, React state for local UI state
-- Avoid prop drilling — use stores or context for deeply nested data
+- Avoid prop drilling — use stores for deeply nested data
 
 ## Pull Request Process
 
@@ -131,19 +139,19 @@ The app uses **Zustand** stores:
 
 ## Reporting Bugs
 
-Open a [Bug Report](https://github.com/your-username/framer-clone/issues/new?template=bug_report.md) with:
+Open a [Bug Report](https://github.com/subhxroy/framerx/issues/new) with:
 
 - A clear, descriptive title
 - Steps to reproduce (include code snippets if relevant)
 - Expected vs. actual behavior
-- Screenshots or screen recordings (if applicable)
+- Screenshots (if applicable)
 - Environment info (browser, OS, Node version)
 
 ## Feature Requests
 
-Open a [Feature Request](https://github.com/your-username/framer-clone/issues/new?template=feature_request.md) with:
+Open a [Feature Request](https://github.com/subhxroy/framerx/issues/new) with:
 
 - A clear description of the feature
 - Why it would be valuable
 - Any implementation ideas or references
-- Mockups or examples (if applicable)
+- Mockups (if applicable)
