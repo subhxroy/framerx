@@ -20,11 +20,12 @@ function renderElementHTML(el: Element, elements: Record<string, Element>, inden
       : ''
   }
 
-  const childHtml = (el.children || [])
-    .map((cid) => {
-      const child = elements[cid]
-      return child ? renderElementHTML(child, elements, indent + 1) : ''
-    })
+  const children = (el.children || []).filter((cid) => {
+    const ch = elements[cid]
+    return ch && ch.visible !== false
+  })
+  const childHtml = children
+    .map((cid) => renderElementHTML(elements[cid], elements, indent + 1))
     .join('\n')
 
   if (inner && childHtml) {
@@ -54,10 +55,8 @@ export function exportToHTML(
   const ogImage = options?.ogImage || ''
 
   const bodyContent = rootIds
-    .map((id) => {
-      const el = elements[id]
-      return el ? renderElementHTML(el, elements) : ''
-    })
+    .filter((id) => elements[id]?.visible !== false)
+    .map((id) => renderElementHTML(elements[id], elements))
     .join('\n')
 
   const mediaQueries = [css.tabletMedia, css.mobileMedia].filter(Boolean).join('\n\n')
@@ -125,7 +124,7 @@ export function exportSingleElementHTML(
   options?: { description?: string; ogImage?: string }
 ): string {
   const rootIds = [element.id]
-  const css = generateCSS(elements, rootIds)
+  const css = generateCSS(elements, rootIds, true, true)
   const bodyContent = renderElementHTML(element, elements)
   const mediaQueries = [css.tabletMedia, css.mobileMedia].filter(Boolean).join('\n\n')
   const description = options?.description || element.name
@@ -184,12 +183,16 @@ export function downloadHTML(
   rootIds: string[],
   filename = 'page.html'
 ): void {
-  const html = exportToHTML(elements, rootIds)
-  const blob = new Blob([html], { type: 'text/html' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
+  try {
+    const html = exportToHTML(elements, rootIds)
+    const blob = new Blob([html], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    console.error('Failed to download HTML:', e)
+  }
 }

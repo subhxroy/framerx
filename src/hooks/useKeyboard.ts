@@ -107,12 +107,6 @@ export default function useKeyboard() {
         return
       }
 
-      // Escape — Deselect
-      if (e.key === 'Escape') {
-        setSelectedIds([])
-        return
-      }
-
       // [ / ] reorder. Cmd/Ctrl sends all the way back/front.
       if (e.key === '[' || e.key === ']') {
         e.preventDefault()

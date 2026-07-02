@@ -8,6 +8,7 @@ import TextElement from './TextElement'
 import FrameElement from './FrameElement'
 import ImageElement from './ImageElement'
 import AnimatedElement from './AnimatedElement'
+import InstanceBadge from '@/editor/canvas/InstanceBadge'
 
 interface Props {
   id: string
@@ -128,7 +129,31 @@ function ElementRenderer({ id, containerRef, flow = false }: Props) {
     }
 
     return bp
-  }, [element, master, activeBreakpoint, previewMode, cmsCtx.item])
+  }, [element, master, activeBreakpoint, previewMode, cmsCtx.item, cmsGetItems])
+
+  // Build variant triggers for instances whose master has triggerOn variants
+  const variantTriggers = useMemo(() => {
+    if (!isInstance || !previewMode || !master?.variants) return []
+    const results: { trigger: 'hover' | 'tap'; target: Record<string, any> }[] = []
+    for (const variant of master.variants) {
+      if (!variant.triggerOn || variant.triggerOn === 'focus') continue
+      const target: Record<string, any> = {}
+      for (const [field, value] of Object.entries(variant.overrides)) {
+        if (value === '' || value === undefined || value === null) continue
+        if (field.startsWith('style.')) {
+          target[field.slice(6)] = value
+        } else if (['opacity', 'scale', 'rotate'].includes(field)) {
+          target[field] = value
+        } else if (field === 'style' && typeof value === 'object') {
+          Object.assign(target, value)
+        }
+      }
+      if (Object.keys(target).length > 0) {
+        results.push({ trigger: variant.triggerOn, target })
+      }
+    }
+    return results
+  }, [master?.variants, isInstance, previewMode])
 
   if (!merged || !merged.visible) return null
 
@@ -173,30 +198,6 @@ function ElementRenderer({ id, containerRef, flow = false }: Props) {
         return <FrameElement element={merged} />
     }
   }
-
-  // Build variant triggers for instances whose master has triggerOn variants
-  const variantTriggers = useMemo(() => {
-    if (!isInstance || !previewMode || !master?.variants) return []
-    const results: { trigger: 'hover' | 'tap'; target: Record<string, any> }[] = []
-    for (const variant of master.variants) {
-      if (!variant.triggerOn || variant.triggerOn === 'focus') continue
-      const target: Record<string, any> = {}
-      for (const [field, value] of Object.entries(variant.overrides)) {
-        if (value === '' || value === undefined || value === null) continue
-        if (field.startsWith('style.')) {
-          target[field.slice(6)] = value
-        } else if (['opacity', 'scale', 'rotate'].includes(field)) {
-          target[field] = value
-        } else if (field === 'style' && typeof value === 'object') {
-          Object.assign(target, value)
-        }
-      }
-      if (Object.keys(target).length > 0) {
-        results.push({ trigger: variant.triggerOn, target })
-      }
-    }
-    return results
-  }, [master?.variants, isInstance, previewMode])
 
   // Absolutely-positioned children (non-auto-layout parents only)
   const children = !isAutoLayoutContainer && childRenderers && (
@@ -282,7 +283,7 @@ function ElementRenderer({ id, containerRef, flow = false }: Props) {
           top: merged.y - (18 / canvasScale),
           fontSize: 10 / canvasScale,
           fontWeight: 500,
-          color: '#666',
+          color: 'var(--text-muted)',
           fontFamily: 'var(--font-ui)',
           pointerEvents: 'none',
           whiteSpace: 'nowrap',
@@ -302,6 +303,9 @@ function ElementRenderer({ id, containerRef, flow = false }: Props) {
         isInAutoLayout={flow}
         isAutoLayoutFrame={isAutoLayoutContainer}
       >
+        {element?.isInstance && !previewMode && (
+          <InstanceBadge elementId={id} scale={canvasScale} />
+        )}
         {renderContent()}
         {children}
       </AnimatedElement>

@@ -39,17 +39,6 @@ export default function BorderSection() {
 
   return (
     <div className="flex flex-col gap-2">
-      <span
-        style={{
-          fontSize: 'var(--text-xs)',
-          color: 'var(--text-muted)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-          fontWeight: 500,
-        }}
-      >
-        Border
-      </span>
       <div className="flex items-center gap-2">
         <button
           ref={swatchRef}

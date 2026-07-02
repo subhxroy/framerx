@@ -23,17 +23,19 @@ const EXTENDED_CARDS = [...GALLERY_CARDS, ...GALLERY_CARDS, ...GALLERY_CARDS]
 
 export default function Auth() {
   const navigate = useNavigate()
-  const { loading, error, clearError } = useAuthStore()
+  const { loading, error, signUpPending, clearError } = useAuthStore()
   const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [resetSent, setResetSent] = useState(false)
+  const [passwordError, setPasswordError] = useState('')
   const [emailFocused, setEmailFocused] = useState(false)
   const [passwordFocused, setPasswordFocused] = useState(false)
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
+    setPasswordError('')
     if (!email.trim()) return
 
     if (mode === 'reset') {
@@ -42,7 +44,10 @@ export default function Auth() {
       return
     }
 
-    if (!password.trim() || password.length < 6) return
+    if (!password.trim() || password.length < 6) {
+      setPasswordError('Password must be at least 6 characters')
+      return
+    }
 
     const ok = mode === 'signin'
       ? await signIn(email.trim(), password)
@@ -59,7 +64,9 @@ export default function Auth() {
   const goMode = (m: 'signin' | 'signup' | 'reset') => {
     setMode(m)
     setResetSent(false)
+    setPasswordError('')
     clearError()
+    if (m !== 'signup') useAuthStore.getState().setSignUpPending(false)
   }
 
   return (
@@ -244,6 +251,16 @@ export default function Auth() {
 
             {error && (
               <p style={{ fontSize: 13, color: '#dc2626', margin: 0 }}>{error}</p>
+            )}
+
+            {passwordError && (
+              <p style={{ fontSize: 13, color: '#dc2626', margin: 0 }}>{passwordError}</p>
+            )}
+
+            {signUpPending && (
+              <p style={{ fontSize: 13, color: '#16a34a', margin: 0 }}>
+                Check your email for a confirmation link.
+              </p>
             )}
 
             {mode === 'reset' && resetSent && (

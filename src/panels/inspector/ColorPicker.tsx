@@ -1,4 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
+import Popover from '@/components/Popover'
+import { Droplet } from 'lucide-react'
 
 function hexToRgb(hex: string) {
   const h = hex.replace('#', '')
@@ -42,6 +44,8 @@ interface Props {
 }
 
 export default function ColorPicker({ value, onChange, onClose, anchorEl }: Props) {
+  // Positioning, enter/exit animation, and outside-click/Escape dismissal are
+  // all handled by the shared <Popover> wrapper below.
   const rgb = hexToRgb(value || '#ffffff')
   const initialHsv = rgbToHsv(rgb.r, rgb.g, rgb.b)
   const [hue, setHue] = useState(initialHsv.h)
@@ -52,7 +56,7 @@ export default function ColorPicker({ value, onChange, onClose, anchorEl }: Prop
   const hueRef = useRef<HTMLCanvasElement>(null)
   const dragging = useRef<'sat' | 'hue' | null>(null)
   const [recent, setRecent] = useState<string[]>([])
-  const popoverRef = useRef<HTMLDivElement>(null)
+  const [picking, setPicking] = useState(false)
 
   const applyColor = useCallback(
     (h: number, s: number, v: number) => {
@@ -114,17 +118,6 @@ export default function ColorPicker({ value, onChange, onClose, anchorEl }: Prop
 
   useEffect(() => { drawSat() }, [drawSat])
   useEffect(() => { drawHue() }, [drawHue])
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node) &&
-          !anchorEl.contains(e.target as Node)) {
-        onClose()
-      }
-    }
-    setTimeout(() => document.addEventListener('mousedown', handler), 0)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [onClose, anchorEl])
 
   const handleSatDown = useCallback((e: React.MouseEvent) => {
     dragging.current = 'sat'
@@ -204,15 +197,32 @@ export default function ColorPicker({ value, onChange, onClose, anchorEl }: Prop
     if (value && value !== '#') addRecent(value)
   }, [value, addRecent])
 
+  const pickColor = async () => {
+    if (!('EyeDropper' in window)) return
+    setPicking(true)
+    try {
+      const eyeDropper = new (window as any).EyeDropper()
+      const result = await eyeDropper.open()
+      const hex = result.sRGBHex as string
+      const { r, g, b } = hexToRgb(hex)
+      const { h, s, v } = rgbToHsv(r, g, b)
+      setHue(h); setSat(s); setVal(v)
+      setHexInput(hex.replace('#', ''))
+      onChange(hex)
+    } catch {
+      // User cancelled
+    } finally {
+      setPicking(false)
+    }
+  }
+
   const c = hsvToRgb(hue, sat, val)
   const currentHex = rgbToHex(c.r, c.g, c.b)
 
   return (
+    <Popover open anchorEl={anchorEl} onClose={onClose} placement="bottom" align="start">
     <div
-      ref={popoverRef}
       style={{
-        position: 'fixed',
-        zIndex: 1000,
         background: 'var(--panel-bg)',
         border: '1px solid var(--border)',
         borderRadius: 'var(--radius-lg)',
@@ -341,6 +351,25 @@ export default function ColorPicker({ value, onChange, onClose, anchorEl }: Prop
             textAlign: 'center',
           }}
         />
+        <button
+          onClick={pickColor}
+          title="Pick color from screen"
+          disabled={picking}
+          style={{
+            width: 24, height: 24,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-sm)',
+            cursor: picking ? 'wait' : 'pointer',
+            color: 'var(--text-secondary)',
+            flexShrink: 0,
+          }}
+          onMouseEnter={e => { if (!picking) e.currentTarget.style.color = 'var(--accent)' }}
+          onMouseLeave={e => { if (!picking) e.currentTarget.style.color = 'var(--text-secondary)' }}
+        >
+          <Droplet size={13} />
+        </button>
       </div>
       {recent.length > 0 && (
         <div className="flex gap-1 mt-2 flex-wrap">
@@ -367,5 +396,6 @@ export default function ColorPicker({ value, onChange, onClose, anchorEl }: Prop
         </div>
       )}
     </div>
+    </Popover>
   )
 }

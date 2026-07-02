@@ -2,11 +2,7 @@ import { useCallback } from 'react'
 import { useEditorStore } from '@/store/editorStore'
 import { useInstanceUpdate } from './useInstanceUpdate'
 import NumberInput from './NumberInput'
-
-const dirIcons = {
-  horizontal: '→',
-  vertical: '↓',
-}
+import SegmentedControl from './SegmentedControl'
 
 export default function AutoLayoutSection() {
   const selectedIds = useEditorStore((s) => s.selectedIds)
@@ -59,17 +55,9 @@ export default function AutoLayoutSection() {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <span
-          style={{
-            fontSize: 'var(--text-xs)',
-            color: 'var(--text-muted)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-            fontWeight: 500,
-          }}
-        >
-          Auto Layout
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 10, color: 'var(--text-muted)', flex: 1 }}>
+          Enabled
         </span>
         <button
           onClick={handleToggle}
@@ -81,19 +69,19 @@ export default function AutoLayoutSection() {
             border: 'none',
             cursor: 'pointer',
             position: 'relative',
-            transition: 'background 0.15s',
+            transition: 'background var(--duration-slow)',
           }}
         >
           <div
             style={{
               width: 12,
               height: 12,
-              borderRadius: '50%',
-              background: '#fff',
-              position: 'absolute',
-              top: 2,
-              left: isOn ? 14 : 2,
-              transition: 'left 0.15s',
+            borderRadius: '50%',
+            background: 'var(--text-inverse)',
+            position: 'absolute',
+            top: 4,
+            left: isOn ? 14 : 4,
+              transition: 'left var(--duration-slow)',
             }}
           />
         </button>
@@ -101,31 +89,14 @@ export default function AutoLayoutSection() {
 
       {isOn && (
         <>
-          <div className="flex items-center gap-2">
-            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-              Direction
-            </span>
-            <div className="flex gap-1">
-              {(['horizontal', 'vertical'] as const).map((dir) => (
-                <button
-                  key={dir}
-                  onClick={() => setAutoLayout({ direction: dir })}
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: 'var(--radius-sm)',
-                    background: al?.direction === dir ? 'var(--accent-bg)' : 'transparent',
-                    border: al?.direction === dir ? '1px solid var(--accent-border)' : '1px solid var(--border)',
-                    color: al?.direction === dir ? 'var(--accent)' : 'var(--text-secondary)',
-                    cursor: 'pointer',
-                    fontSize: 'var(--text-sm)',
-                  }}
-                >
-                  {dirIcons[dir]}
-                </button>
-              ))}
-            </div>
-          </div>
+          <SegmentedControl
+            options={[
+              { value: 'horizontal', label: '→' },
+              { value: 'vertical', label: '↓' },
+            ]}
+            value={al?.direction ?? 'vertical'}
+            onChange={(v) => setAutoLayout({ direction: v })}
+          />
 
           <NumberInput
             label="Gap"
@@ -223,7 +194,7 @@ export default function AutoLayoutSection() {
                 border: 'none',
                 cursor: 'pointer',
                 position: 'relative',
-                transition: 'background 0.15s',
+                transition: 'background var(--duration-slow)',
               }}
             >
               <div
@@ -231,11 +202,11 @@ export default function AutoLayoutSection() {
                   width: 12,
                   height: 12,
                   borderRadius: '50%',
-                  background: '#fff',
+                  background: 'var(--text-inverse)',
                   position: 'absolute',
-                  top: 2,
-                  left: al?.wrap ? 14 : 2,
-                  transition: 'left 0.15s',
+                  top: 4,
+                  left: al?.wrap ? 14 : 4,
+                  transition: 'left var(--duration-slow)',
                 }}
               />
             </button>

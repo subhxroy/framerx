@@ -108,42 +108,48 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   // ── Create ─────────────────────────────────────────────────────────────────
   createProject: async (name, width, height) => {
     if (isSupabaseConfigured && supabase) {
-      const userId = useAuthStore.getState().user?.uid
-      if (!userId) throw new Error('Not authenticated')
+      try {
+        const userId = useAuthStore.getState().user?.uid
+        if (!userId) throw new Error('Not authenticated')
 
-      const { data, error } = await supabase
-        .from('projects')
-        .insert({ user_id: userId, name, canvas_width: width, canvas_height: height })
-        .select()
-        .single()
+        const { data, error } = await supabase
+          .from('projects')
+          .insert({ user_id: userId, name, canvas_width: width, canvas_height: height })
+          .select()
+          .single()
 
-      if (error || !data) throw new Error(error?.message || 'Failed to create project')
+        if (error || !data) throw new Error(error?.message || 'Failed to create project')
 
-      const project: Project = {
-        id: data.id,
-        name: data.name,
-        createdAt: new Date(data.created_at).getTime(),
-        updatedAt: new Date(data.updated_at).getTime(),
-        canvasWidth: data.canvas_width,
-        canvasHeight: data.canvas_height,
+        const project: Project = {
+          id: data.id,
+          name: data.name,
+          createdAt: new Date(data.created_at).getTime(),
+          updatedAt: new Date(data.updated_at).getTime(),
+          canvasWidth: data.canvas_width,
+          canvasHeight: data.canvas_height,
+        }
+
+        const starterData = createStarterProjectData(width, height)
+
+        const { error: dataError } = await supabase.from('project_data').insert({
+          project_id: data.id,
+          elements: starterData.elements,
+          root_element_ids: starterData.rootElementIds,
+          canvas_state: starterData.canvas,
+        })
+
+        if (dataError) console.warn('project_data insert failed:', dataError.message)
+
+        set((s) => {
+          const projects = { ...s.projects, [project.id]: project }
+          const projectList = Object.values(projects).sort((a, b) => b.updatedAt - a.updatedAt)
+          return { projects, projectList }
+        })
+
+        return project.id
+      } catch (err) {
+        console.warn('Supabase createProject failed, falling back to localStorage:', err)
       }
-
-      const starterData = createStarterProjectData(width, height)
-
-      await supabase.from('project_data').insert({
-        project_id: data.id,
-        elements: starterData.elements,
-        root_element_ids: starterData.rootElementIds,
-        canvas_state: starterData.canvas,
-      })
-
-      set((s) => {
-        const projects = { ...s.projects, [project.id]: project }
-        const projectList = Object.values(projects).sort((a, b) => b.updatedAt - a.updatedAt)
-        return { projects, projectList }
-      })
-
-      return project.id
     }
 
     // localStorage fallback
@@ -196,6 +202,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   deleteProject: async (id) => {
     if (isSupabaseConfigured && supabase) {
       try {
+        await supabase.from('project_data').delete().eq('project_id', id)
         await supabase.from('projects').delete().eq('id', id)
       } catch (e) {
         console.error('deleteProject failed:', e)

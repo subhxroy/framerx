@@ -14,6 +14,8 @@ export default function AssetsPanel() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [showUrl, setShowUrl] = useState(false)
   const [url, setUrl] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
 
   const addElement = useEditorStore((s) => s.addElement)
   const updateElement = useEditorStore((s) => s.updateElement)
@@ -22,9 +24,16 @@ export default function AssetsPanel() {
   const handleFiles = useCallback(
     async (files: FileList | null) => {
       if (!files) return
-      for (const file of Array.from(files)) {
-        if (file.type.startsWith('image/')) await addAssetFromFile(file)
+      setUploading(true)
+      setUploadError('')
+      try {
+        for (const file of Array.from(files)) {
+          if (file.type.startsWith('image/')) await addAssetFromFile(file)
+        }
+      } catch (e) {
+        setUploadError('Failed to upload one or more files')
       }
+      setUploading(false)
     },
     [addAssetFromFile]
   )
@@ -58,25 +67,27 @@ export default function AssetsPanel() {
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <div style={{ display: 'flex', gap: 6, padding: 12, borderBottom: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', gap: 8, padding: 12, borderBottom: '1px solid var(--border)' }}>
         <button
           onClick={() => fileRef.current?.click()}
+          disabled={uploading}
           style={{
             flex: 1,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: 6,
+            gap: 8,
             height: 30,
             borderRadius: 'var(--radius-sm)',
             background: 'var(--surface-3)',
             border: 'none',
             color: 'var(--text-primary)',
             fontSize: 'var(--text-base)',
-            cursor: 'pointer',
+            cursor: uploading ? 'wait' : 'pointer',
+            opacity: uploading ? 0.6 : 1,
           }}
         >
-          <Upload size={13} /> Upload
+          <Upload size={13} /> {uploading ? 'Uploading...' : 'Upload'}
         </button>
         <button
           onClick={() => setShowUrl((v) => !v)}
@@ -106,7 +117,7 @@ export default function AssetsPanel() {
       </div>
 
       {showUrl && (
-        <div style={{ display: 'flex', gap: 6, padding: '8px 12px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', gap: 8, padding: '8px 12px', borderBottom: '1px solid var(--border)' }}>
           <input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
@@ -133,6 +144,11 @@ export default function AssetsPanel() {
         </div>
       )}
 
+      {uploadError && (
+        <div style={{ padding: '6px 12px', fontSize: 'var(--text-xs)', color: 'var(--error)' }}>
+          {uploadError}
+        </div>
+      )}
       {/* Grid */}
       <div className="flex-1 overflow-y-auto" style={{ padding: 12 }}>
         {assets.length === 0 ? (
@@ -192,9 +208,9 @@ export default function AssetsPanel() {
                     borderRadius: 4,
                     background: 'rgba(0,0,0,0.6)',
                     border: 'none',
-                    color: '#fff',
+                    color: 'var(--text-inverse)',
                     cursor: 'pointer',
-                    transition: 'opacity 0.1s',
+                    transition: 'opacity var(--duration-normal)',
                   }}
                 >
                   <Trash2 size={11} />

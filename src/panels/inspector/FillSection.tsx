@@ -141,25 +141,7 @@ export default function FillSection() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {/* Section header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 500 }}>
-          Fill
-        </span>
-        <button
-          onClick={addFill}
-          title="Add fill"
-          style={{
-            width: 18, height: 18, borderRadius: 3, border: '1px solid var(--border)',
-            background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-        >
-          <Plus size={10} />
-        </button>
-      </div>
-
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {/* Fill layers */}
       {fills.length === 0 && (
         <button
@@ -176,14 +158,14 @@ export default function FillSection() {
       )}
 
       {fills.map((fill, idx) => (
-        <div key={fill.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div key={fill.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {/* Drag handle */}
-          <GripVertical size={10} style={{ color: '#444', flexShrink: 0, cursor: 'grab' }} />
+          <GripVertical size={10} style={{ color: 'var(--text-muted)', flexShrink: 0, cursor: 'grab' }} />
 
           {/* Visibility */}
           <button
             onClick={() => toggleVisible(idx)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: fill.visible ? 'var(--text-secondary)' : '#444' }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: fill.visible ? 'var(--text-secondary)' : 'var(--text-muted)' }}
           >
             {fill.visible ? <Eye size={11} /> : <EyeOff size={11} />}
           </button>
@@ -193,7 +175,7 @@ export default function FillSection() {
             ref={el => { swatchRefs.current[idx] = el }}
             onClick={() => setOpenPickerIdx(openPickerIdx === idx ? null : idx)}
             style={{
-              width: 22, height: 22, flexShrink: 0, borderRadius: 3,
+              width: 22, height: 22, flexShrink: 0, borderRadius: 4,
               border: '1px solid var(--border)', cursor: 'pointer',
               background: fill.type === 'solid' ? fill.color : fillToCSS(fill),
             }}
@@ -204,7 +186,7 @@ export default function FillSection() {
             value={fill.type}
             onChange={e => setFillType(idx, e.target.value as FillDef['type'])}
             style={{
-              flex: 1, height: 26, background: 'var(--surface-2)',
+              flex: 1, height: 28, background: 'var(--surface-2)',
               border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
               color: 'var(--text-primary)', fontSize: 11, padding: '0 4px',
               outline: 'none', cursor: 'pointer',
@@ -225,7 +207,7 @@ export default function FillSection() {
                 saveFills(fills.map((f, i) => i === idx ? { ...f, angle } : f))
               }}
               style={{
-                width: 40, height: 26, background: 'var(--surface-2)',
+                width: 40, height: 28, background: 'var(--surface-2)',
                 border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
                 color: 'var(--text-primary)', fontSize: 11, padding: '0 4px',
                 outline: 'none',
@@ -236,7 +218,7 @@ export default function FillSection() {
           {/* Delete */}
           <button
             onClick={() => removeFill(idx)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#444' }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-muted)' }}
           >
             <Trash2 size={11} />
           </button>
@@ -261,13 +243,13 @@ export default function FillSection() {
           <div key={`stops-${fill.id}`} style={{ marginTop: 4, paddingLeft: 4 }}>
             {/* Live gradient preview bar */}
             <div style={{
-              height: 16, borderRadius: 4, marginBottom: 6,
+              height: 16, borderRadius: 4, marginBottom: 8,
               background: fillToCSS({ ...fill, angle: 90 }),
               border: '1px solid var(--border)',
             }} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {stops.map((stop, si) => (
-                <div key={si} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div key={si} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {/* Editable color swatch → opens ColorPicker */}
                   <button
                     ref={node => { stopRefs.current[`${fillIdx}-${si}`] = node }}
@@ -275,7 +257,7 @@ export default function FillSection() {
                       openStop && openStop.f === fillIdx && openStop.s === si ? null : { f: fillIdx, s: si }
                     )}
                     style={{
-                      width: 18, height: 18, borderRadius: 3, flexShrink: 0,
+                      width: 18, height: 18, borderRadius: 4, flexShrink: 0,
                       border: '1px solid var(--border)', cursor: 'pointer',
                       background: stop.color,
                     }}
@@ -288,7 +270,7 @@ export default function FillSection() {
                     value={stop.position}
                     onChange={e => setStopPosition(fillIdx, si, Number(e.target.value))}
                     style={{
-                      width: 48, height: 24, background: 'var(--surface-2)',
+                      width: 48, height: 28, background: 'var(--surface-2)',
                       border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
                       color: 'var(--text-primary)', fontSize: 11, padding: '0 4px',
                       outline: 'none',
@@ -301,7 +283,7 @@ export default function FillSection() {
                     disabled={stops.length <= 2}
                     style={{
                       marginLeft: 'auto', background: 'none', border: 'none', padding: 0,
-                      display: 'flex', color: stops.length <= 2 ? '#333' : '#666',
+                      display: 'flex', color: stops.length <= 2 ? 'var(--text-disabled)' : 'var(--text-tertiary)',
                       cursor: stops.length <= 2 ? 'default' : 'pointer',
                     }}
                   >

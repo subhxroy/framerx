@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useCMSStore } from '@/store/cmsStore'
 import CollectionEditor from './CollectionEditor'
 import ItemsTable from './ItemsTable'
@@ -12,6 +12,8 @@ export default function CMSPanel() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [editingItem, setEditingItem] = useState<{ collectionId: string; itemId: string } | null>(null)
   const [newName, setNewName] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState('')
 
   const collectionList = Object.values(collections)
 
@@ -25,12 +27,15 @@ export default function CMSPanel() {
     )
   }
 
+  useEffect(() => {
+    if (selectedId && !collections[selectedId]) {
+      setSelectedId(null)
+    }
+  }, [selectedId, collections])
+
   if (selectedId) {
     const collection = collections[selectedId]
-    if (!collection) {
-      setSelectedId(null)
-      return null
-    }
+    if (!collection) return null
     return (
       <div className="flex flex-col h-full">
         <CollectionEditor collection={collection} onBack={() => setSelectedId(null)} />
@@ -54,28 +59,46 @@ export default function CMSPanel() {
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           onKeyDown={async (e) => {
-            if (e.key === 'Enter' && newName.trim()) {
-              const id = await addCollection(newName.trim())
-              setSelectedId(id)
-              setNewName('')
+            if (e.key === 'Enter' && newName.trim() && !creating) {
+              setCreating(true)
+              setCreateError('')
+              try {
+                const id = await addCollection(newName.trim())
+                setSelectedId(id)
+                setNewName('')
+              } catch {
+                setCreateError('Failed to create collection')
+              }
+              setCreating(false)
             }
           }}
         />
         <button
           className="text-xs px-2 py-1 rounded"
-          style={{ background: 'var(--accent)', color: '#fff', border: 'none', cursor: 'pointer' }}
+          style={{ background: 'var(--accent)', color: 'var(--text-inverse)', border: 'none', cursor: creating ? 'wait' : 'pointer', opacity: creating ? 0.6 : 1 }}
+          disabled={creating}
           onClick={async () => {
-            if (newName.trim()) {
-              const id = await addCollection(newName.trim())
-              setSelectedId(id)
-              setNewName('')
+            if (newName.trim() && !creating) {
+              setCreating(true)
+              setCreateError('')
+              try {
+                const id = await addCollection(newName.trim())
+                setSelectedId(id)
+                setNewName('')
+              } catch {
+                setCreateError('Failed to create collection')
+              }
+              setCreating(false)
             }
           }}
         >
-          + New
+          {creating ? 'Creating...' : '+ New'}
         </button>
       </div>
 
+      {createError && (
+        <p className="text-xs" style={{ color: 'var(--error)', padding: '0 4px' }}>{createError}</p>
+      )}
       <div className="flex flex-col gap-1 overflow-auto">
         {collectionList.length === 0 && (
           <p className="text-xs text-center" style={{ color: 'var(--text-muted)', padding: 16 }}>

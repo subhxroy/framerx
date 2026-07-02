@@ -82,13 +82,13 @@ The editor includes an infinite canvas with pan/zoom, a multi-panel layout, auto
 
 ### Inspector / Properties Panel
 
-Tabs: **Style** | **Agent** (AI placeholder) | **Code**
+Tabs: **Design** | **Agent** (AI) | **Code**
 
-Style tab sections:
+Design tab sections (collapsible):
 
 1. **Layout** — X/Y, W/H, rotation, sizing mode (fixed/fill/hug)
 2. **Auto Layout** — Direction, gap, padding (4 sides), align items, justify content, wrap
-3. **Fill** — Multi-layer fills (solid, linear-gradient, radial-gradient) with per-layer visibility, opacity, and gradient stop editor
+3. **Fill** — Background color picker with EyeDropper API support
 4. **Image** (image type only) — Source URL, object-fit
 5. **Border** — Width, color, style (solid/dashed/dotted), stroke alignment
 6. **Border Radius** — Uniform radius + independent 4-corner control
@@ -97,7 +97,9 @@ Style tab sections:
 9. **Typography** (text only) — Font size, weight, color, alignment, line height, letter spacing
 10. **CMS Binding** — Bind element to CMS collection field
 11. **Animation** — Animation config for triggers
-12. **Interaction** — Hover/tap/appear/inview transitions + navigate actions
+12. **Scroll Animation** — Map scroll progress to visual properties
+13. **Variants** (component masters only) — Variant states with trigger conditions
+14. **Interaction** — Hover/tap/appear/inview transitions + navigate actions
 
 ### Auto Layout
 
@@ -148,6 +150,14 @@ All animations execute in Preview mode using the Motion library.
   | Forms | Button, Ghost Button, Input, Checkbox, Toggle, Dropdown |
   | Layout | Card, Hero Section, Feature Grid, Pricing Table |
   | Typography | Heading, Paragraph, Code Block |
+
+### AI Copilot
+
+- **Supabase Edge Function** — Structured AI generation with rate limiting (20 req/min/user)
+- **Chat panel** — Generate/Redesign mode, explanation cards with icons
+- **Design grounding** — Extracts canvas colors, fonts, spacing, radii for context-aware generation
+- **Preview overlay** — Dashed accent rects + labels before accepting AI changes
+- **Accept/Discard** — One-click apply with history push or discard
 
 ### Preview Mode
 
@@ -201,11 +211,15 @@ All animations execute in Preview mode using the Motion library.
 | `Arrow keys` | Nudge 1px (+Shift: 10px) |
 | `[` / `]` | Send backward / Bring forward (+Cmd: front/back) |
 | `Tab` / `Shift+Tab` | Cycle siblings |
+| `H` | Hand/pan tool toggle |
 | `Cmd+0` / `Cmd++` / `Cmd+-` | Zoom reset / in / out |
 | `Shift+1` / `Shift+2` | Zoom to fit all / selection |
 | `Cmd+P` | Toggle preview |
 | `Cmd+K` | Toggle command palette |
 | `Cmd+S` | Force save |
+| `Tab` / `Shift+Tab` | Cycle siblings |
+| `[` / `]` | Send backward / Bring forward (+Cmd: front/back) |
+| `Shift+scroll` | Horizontal pan |
 
 ---
 
@@ -451,7 +465,8 @@ The project uses Supabase (PostgreSQL) with the following tables:
 |----------|----------|-------------|
 | `VITE_SUPABASE_URL` | No | Your Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | No | Your Supabase anonymous API key |
-| `VITE_OPENROUTER_API_KEY` | No | OpenRouter API key for AI Agent panel |
+| `VITE_OPENROUTER_API_KEY` | No | OpenRouter API key for AI Agent panel & Copilot Edge Function |
+| `OPENROUTER_API_KEY` | No | (Supabase secret) AI Copilot Edge Function provider key |
 
 Without these variables, the app uses localStorage for all persistence.
 

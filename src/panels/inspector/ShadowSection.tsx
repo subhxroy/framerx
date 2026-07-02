@@ -80,37 +80,19 @@ export default function ShadowSection() {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <span
-          style={{
-            fontSize: 'var(--text-xs)',
-            color: 'var(--text-muted)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-            fontWeight: 500,
-          }}
-        >
-          Shadow
-        </span>
+      {shadows.length === 0 && (
         <button
           onClick={addShadow}
-          title="Add shadow"
           style={{
-            width: 20,
-            height: 20,
-            display: 'grid',
-            placeItems: 'center',
-            borderRadius: 'var(--radius-sm)',
-            background: 'var(--surface-3)',
-            border: 'none',
-            color: 'var(--text-secondary)',
-            cursor: 'pointer',
+            width: '100%', height: 28, borderRadius: 'var(--radius-sm)',
+            border: '1px dashed var(--border)', background: 'transparent',
+            color: 'var(--text-muted)', fontSize: 11, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
           }}
         >
-          <Plus size={12} />
+          <Plus size={11} /> Add shadow
         </button>
-      </div>
-
+      )}
       {shadows.map((s, i) => (
         <div
           key={i}
@@ -146,6 +128,19 @@ export default function ShadowSection() {
           </div>
         </div>
       ))}
+      {shadows.length > 0 && (
+        <button
+          onClick={addShadow}
+          style={{
+            width: '100%', height: 28, borderRadius: 'var(--radius-sm)',
+            border: '1px dashed var(--border)', background: 'transparent',
+            color: 'var(--text-muted)', fontSize: 11, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+          }}
+        >
+          <Plus size={11} /> Add shadow
+        </button>
+      )}
     </div>
   )
 }

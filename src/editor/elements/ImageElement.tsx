@@ -6,7 +6,21 @@ interface Props {
 }
 
 export default function ImageElement({ element }: Props) {
-  const img = element.image!
+  const img = element.image
+  if (!img) {
+    return (
+      <div
+        className="flex items-center justify-center w-full h-full"
+        style={{
+          background: 'var(--surface-2)',
+          color: 'var(--text-muted)',
+          fontSize: 11,
+        }}
+      >
+        Drop image or enter URL
+      </div>
+    )
+  }
   const radius = getBorderRadiusCSS(element.style)
   const boxShadow = getBoxShadowCSS(element.style)
   return img.src ? (

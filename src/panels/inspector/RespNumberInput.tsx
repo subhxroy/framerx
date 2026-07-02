@@ -122,7 +122,7 @@ export default function RespNumberInput({
             borderRadius: 'var(--radius-sm)',
             color: overridden ? 'var(--accent)' : 'var(--text-primary)',
             fontSize: 'var(--text-base)',
-            padding: '0 6px',
+            padding: '0 8px',
             outline: 'none',
           }}
         />

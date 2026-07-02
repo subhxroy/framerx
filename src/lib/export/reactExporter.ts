@@ -4,16 +4,27 @@ function twClass(id: string) {
   return `el_${id.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 12)}`
 }
 
-function styleObj(el: Element): Record<string, string | number | undefined> {
+function styleObj(el: Element, flow = false): Record<string, string | number | undefined> {
   const s: Record<string, string | number | undefined> = {}
 
-  s.left = 0
-  s.top = 0
-  s.width = `${el.width}px`
-  s.height = `${el.height}px`
-  s.transform = `translate(${el.x}px, ${el.y}px) rotate(${el.rotation}deg)`
-  s.transformOrigin = '0 0'
-  s.opacity = el.opacity
+  if (flow) {
+    s.position = 'relative'
+    s.width = `${el.width}px`
+    s.height = `${el.height}px`
+    s.transform = el.rotation ? `rotate(${el.rotation}deg)` : undefined
+    s.transformOrigin = '0 0'
+    s.opacity = el.opacity
+    s.flexShrink = 0
+  } else {
+    s.position = 'absolute'
+    s.left = 0
+    s.top = 0
+    s.width = `${el.width}px`
+    s.height = `${el.height}px`
+    s.transform = `translate(${el.x}px, ${el.y}px) rotate(${el.rotation}deg)`
+    s.transformOrigin = '0 0'
+    s.opacity = el.opacity
+  }
 
   if (el.style.backgroundColor) s.backgroundColor = el.style.backgroundColor
   if (el.style.borderRadius !== undefined) s.borderRadius = `${el.style.borderRadius}px`
@@ -52,10 +63,10 @@ function styleString(obj: Record<string, string | number | undefined>): string {
     .join(', ')
 }
 
-function renderElementReact(el: Element, elements: Record<string, Element>, indent = 2): string {
+function renderElementReact(el: Element, elements: Record<string, Element>, indent = 2, flow = false): string {
   const pad = '  '.repeat(indent)
   const cls = twClass(el.id)
-  const st = styleObj(el)
+  const st = styleObj(el, flow)
   const stStr = styleString(st)
 
   let inner = ''
@@ -68,12 +79,13 @@ function renderElementReact(el: Element, elements: Record<string, Element>, inde
     inner = `<img src="${escapeJs(el.image.src)}" alt="" style={{ width: '100%', height: '100%', objectFit: '${el.image.objectFit}', pointerEvents: 'none' }} />`
   }
 
-  const childHtml = (el.children || [])
-    .map((cid) => {
-      const child = elements[cid]
-      return child ? renderElementReact(child, elements, indent + 1) : ''
-    })
-    .filter(Boolean)
+  const childFlow = !!el.autoLayout?.enabled
+  const children = (el.children || []).filter((cid) => {
+    const ch = elements[cid]
+    return ch && ch.visible !== false
+  })
+  const childHtml = children
+    .map((cid) => renderElementReact(elements[cid], elements, indent + 1, childFlow))
     .join('\n')
 
   if (inner && childHtml) {
@@ -97,10 +109,8 @@ export function exportToReact(
   rootIds: string[]
 ): string {
   const bodyContent = rootIds
-    .map((id) => {
-      const el = elements[id]
-      return el ? renderElementReact(el, elements) : ''
-    })
+    .filter((id) => elements[id]?.visible !== false)
+    .map((id) => renderElementReact(elements[id], elements))
     .join('\n')
 
   return `import type { CSSProperties } from 'react'
@@ -128,12 +138,16 @@ export function downloadReactComponent(
   rootIds: string[],
   filename = 'Page.tsx'
 ): void {
-  const code = exportToReact(elements, rootIds)
-  const blob = new Blob([code], { type: 'text/plain' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
+  try {
+    const code = exportToReact(elements, rootIds)
+    const blob = new Blob([code], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    console.error('Failed to download React component:', e)
+  }
 }

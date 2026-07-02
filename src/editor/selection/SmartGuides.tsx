@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useEditorStore } from '@/store/editorStore'
+import { THRESHOLD } from '@/lib/motionTokens'
 
 interface Guide {
   type: 'h' | 'v'
@@ -24,7 +25,7 @@ export default function SmartGuides({ draggingId, canvasTransform, containerRef 
     if (!dragging) return []
 
     const guides: Guide[] = []
-    const SNAP_THRESHOLD = 4 / canvasTransform.scale
+    const SNAP_THRESHOLD = THRESHOLD.snapDistance / canvasTransform.scale
 
     // Dragging element edges
     const dLeft = dragging.x
@@ -115,7 +116,7 @@ export default function SmartGuides({ draggingId, canvasTransform, containerRef 
               <line
                 key={i}
                 x1={x} y1={0} x2={x} y2="100%"
-                stroke="#E040FB"
+                stroke="var(--accent)"
                 strokeWidth="1"
                 strokeDasharray="none"
               />
@@ -126,7 +127,7 @@ export default function SmartGuides({ draggingId, canvasTransform, containerRef 
               <line
                 key={i}
                 x1={0} y1={y} x2="100%" y2={y}
-                stroke="#E040FB"
+                stroke="var(--accent)"
                 strokeWidth="1"
               />
             )
@@ -147,13 +148,13 @@ export default function SmartGuides({ draggingId, canvasTransform, containerRef 
               left, top,
               transform: 'translate(-50%, -50%)',
               zIndex: 51,
-              background: '#E040FB',
-              color: '#fff',
+              background: 'var(--accent)',
+              color: 'var(--text-inverse)',
               fontSize: 10,
               fontWeight: 600,
               lineHeight: 1,
               padding: '2px 4px',
-              borderRadius: 3,
+              borderRadius: 4,
               whiteSpace: 'nowrap',
               fontVariantNumeric: 'tabular-nums',
             }}

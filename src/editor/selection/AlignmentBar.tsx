@@ -50,12 +50,12 @@ function AlignBtn({ icon, title, onClick }: { icon: React.ReactNode; title: stri
       title={title}
       onClick={onClick}
       style={{
-        width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
         borderRadius: 4, border: 'none', background: 'transparent',
-        color: '#8a8a8a', cursor: 'pointer', transition: 'background 0.1s, color 0.1s',
+        color: 'var(--text-secondary)', cursor: 'pointer', transition: 'background var(--duration-normal), color var(--duration-normal)',
       }}
-      onMouseEnter={e => { e.currentTarget.style.background = '#252525'; e.currentTarget.style.color = '#e0e0e0' }}
-      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#8a8a8a' }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)' }}
     >
       {icon}
     </button>
@@ -103,13 +103,13 @@ export default function AlignmentBar() {
     for (const el of sorted) { updateElement(el.id, { y: cursor }); cursor += el.height + gap }
   }
 
-  const divider = <div style={{ width: 1, height: 14, background: '#2a2a2a', margin: '0 1px' }} />
+  const divider = <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 4px' }} />
 
   return (
     <div style={{
       display: 'flex', alignItems: 'center',
-      background: '#1c1c1c', border: '1px solid #2a2a2a',
-      borderRadius: 6, padding: '3px 4px', gap: 1,
+      background: 'var(--panel-bg)', border: '1px solid var(--panel-border)',
+      borderRadius: 8, padding: '4px', gap: 4,
       boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
     }}>
       <AlignBtn icon={icons.alignLeft}    title="Align left"        onClick={() => align(() => ({ x: minX }))} />

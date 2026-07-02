@@ -84,12 +84,21 @@ export default function Dashboard() {
     )
   }, [persistStarred, starredIds])
 
+  const [createError, setCreateError] = useState<string | null>(null)
+
   const handleCreate = useCallback(async () => {
-    const id = await createProject(newName || 'Untitled', canvasSize.width, canvasSize.height)
-    await saveProjectData(id, createStarterProjectData(canvasSize.width, canvasSize.height))
-    setShowNewModal(false)
-    setNewName('Untitled')
-    navigate(`/editor/${id}`)
+    setCreateError(null)
+    try {
+      const id = await createProject(newName || 'Untitled', canvasSize.width, canvasSize.height)
+      await saveProjectData(id, createStarterProjectData(canvasSize.width, canvasSize.height))
+      setShowNewModal(false)
+      setNewName('Untitled')
+      navigate(`/editor/${id}`)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to create project'
+      console.error('Create project failed:', err)
+      setCreateError(msg)
+    }
   }, [newName, canvasSize, createProject, saveProjectData, navigate])
 
   const handleOpen      = useCallback((id: string) => navigate(`/editor/${id}`), [navigate])
@@ -705,6 +714,16 @@ export default function Dashboard() {
                 <X size={14} />
               </button>
             </div>
+
+            {createError && (
+              <div style={{
+                marginBottom: 10, padding: '6px 10px', borderRadius: 6,
+                background: 'rgba(255,59,48,0.12)', border: '0.5px solid rgba(255,59,48,0.3)',
+                color: '#ff3b30', fontSize: 11, lineHeight: 1.4,
+              }}>
+                {createError}
+              </div>
+            )}
 
             {/* Name */}
             <label style={{

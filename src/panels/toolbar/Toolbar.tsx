@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import type { Tool, Breakpoint } from '@/store/editorStore'
 import { useEditorStore } from '@/store/editorStore'
@@ -8,9 +8,10 @@ import PublishModal from '@/panels/publish/PublishModal'
 import type { SaveStatus } from '@/hooks/useAutoSave'
 import {
   MousePointer2, Square, Type, Image as ImageIcon,
-  Circle, Play, Eye, X, ChevronDown, Monitor, Tablet,
-  Smartphone, Plus, Hand,
+  Circle, Play, Eye, X, Monitor, Tablet,
+  Smartphone, Hand,
 } from 'lucide-react'
+import { DURATION, DELAY } from '@/lib/motionTokens'
 
 const TOOLS: { id: Tool; label: string; shortcut: string; icon: React.ReactNode }[] = [
   { id: 'select',  label: 'Select',    shortcut: 'V', icon: <MousePointer2 size={15} strokeWidth={1.5} /> },
@@ -21,32 +22,30 @@ const TOOLS: { id: Tool; label: string; shortcut: string; icon: React.ReactNode 
   { id: 'ellipse', label: 'Ellipse',   shortcut: 'O', icon: <Circle size={15} strokeWidth={1.5} /> },
 ]
 
-const BREAKPOINTS: { id: Breakpoint; label: string; width: number; icon: React.ReactNode }[] = [
-  { id: 'desktop', label: 'Desktop', width: 1280, icon: <Monitor size={12} strokeWidth={1.5} /> },
-  { id: 'tablet',  label: 'Tablet',  width: 810,  icon: <Tablet size={12} strokeWidth={1.5} /> },
-  { id: 'mobile',  label: 'Phone',   width: 390,  icon: <Smartphone size={12} strokeWidth={1.5} /> },
+const BREAKPOINTS: { id: Breakpoint; label: string; icon: React.ReactNode }[] = [
+  { id: 'desktop', label: 'Desktop', icon: <Monitor size={12} strokeWidth={1.5} /> },
+  { id: 'tablet',  label: 'Tablet',  icon: <Tablet size={12} strokeWidth={1.5} /> },
+  { id: 'mobile',  label: 'Phone',   icon: <Smartphone size={12} strokeWidth={1.5} /> },
 ]
 
-const ZOOM_PRESETS = [2, 10, 25, 50, 75, 100, 150, 200, 400, 800, 1600, 3200, 6400]
+const TOOLTIP_DURATION = DURATION.instant
 
 interface Props {
   saveStatus?: SaveStatus
 }
 
 export default function Toolbar({ saveStatus = 'saved' }: Props) {
-  const [showPublish, setShowPublish]   = useState(false)
-  const [tooltip, setTooltip]           = useState<string | null>(null)
-  const [showZoomMenu, setShowZoomMenu] = useState(false)
-  const zoomRef = useRef<HTMLDivElement>(null)
+  const [showPublish, setShowPublish] = useState(false)
+  const [tooltip, setTooltip] = useState<string | null>(null)
+  let tooltipTimer: ReturnType<typeof setTimeout> | undefined
 
   const activeTool         = useEditorStore(s => s.activeTool)
   const setActiveTool      = useEditorStore(s => s.setActiveTool)
   const previewMode        = useEditorStore(s => s.previewMode)
   const setPreviewMode     = useEditorStore(s => s.setPreviewMode)
-  const canvas             = useEditorStore(s => s.canvas)
-  const setCanvas          = useEditorStore(s => s.setCanvas)
   const activeBreakpoint   = useEditorStore(s => s.activeBreakpoint)
   const setActiveBreakpoint = useEditorStore(s => s.setActiveBreakpoint)
+  const setCanvas          = useEditorStore(s => s.setCanvas)
 
   const { projectId } = useParams<{ projectId: string }>()
   const getProject    = useProjectStore(s => s.getProject)
@@ -60,86 +59,103 @@ export default function Toolbar({ saveStatus = 'saved' }: Props) {
     .toUpperCase()
     .slice(0, 2)
 
-  useEffect(() => {
-    if (!showZoomMenu) return
-    const handler = (e: MouseEvent) => {
-      if (zoomRef.current && !zoomRef.current.contains(e.target as Node))
-        setShowZoomMenu(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [showZoomMenu])
-
   const handleBreakpoint = (bp: Breakpoint) => {
     setActiveBreakpoint(bp)
     setCanvas({ scale: bp === 'mobile' ? 0.6 : bp === 'tablet' ? 0.75 : 1 })
   }
 
-  const zoomPct = Math.round(canvas.scale * 100)
+  const showTooltip = (id: string) => {
+    if (tooltipTimer) clearTimeout(tooltipTimer)
+    tooltipTimer = setTimeout(() => setTooltip(id), DELAY.hoverIntent)
+  }
+
+  const hideTooltip = () => {
+    if (tooltipTimer) clearTimeout(tooltipTimer)
+    setTooltip(null)
+  }
 
   return (
     <>
-      <header style={{
+      <div style={{
+        position: 'absolute',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        top: 12,
+        zIndex: 20,
         display: 'flex',
         alignItems: 'center',
-        height: 40,
-        background: 'var(--toolbar-bg)',
-        borderBottom: '1px solid var(--border)',
-        paddingInline: 8,
+        height: 48,
+        padding: '0 8px',
         gap: 0,
-        flexShrink: 0,
-        position: 'relative',
-        zIndex: 10,
+        borderRadius: 12,
+        background: 'var(--panel-bg)',
+        border: '0.5px solid var(--border-strong)',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
       }}>
+        {/* Breakpoints */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+          {BREAKPOINTS.map(bp => (
+            <button
+              key={bp.id}
+              onClick={() => handleBreakpoint(bp.id)}
+              style={{
+                width: 32, height: 32,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                borderRadius: 6, border: 'none', cursor: 'pointer',
+                background: activeBreakpoint === bp.id ? 'var(--surface-3)' : 'transparent',
+                color: activeBreakpoint === bp.id ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                transition: `all ${TOOLTIP_DURATION}s`,
+              }}
+              title={bp.label}
+              onMouseEnter={e => {
+                if (activeBreakpoint !== bp.id) {
+                  e.currentTarget.style.background = 'var(--surface-hover)'
+                  e.currentTarget.style.color = 'var(--text-secondary)'
+                }
+              }}
+              onMouseLeave={e => {
+                if (activeBreakpoint !== bp.id) {
+                  e.currentTarget.style.background = 'transparent'
+                  e.currentTarget.style.color = 'var(--text-tertiary)'
+                }
+              }}
+            >
+              {bp.icon}
+            </button>
+          ))}
+        </div>
 
-        {/* ── LEFT: Logo + Tools ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+        {/* Divider */}
+        <div style={{ width: 1, height: 24, background: 'var(--border)', marginInline: 4 }} />
 
-          {/* Framer Logo */}
-          <button style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 28, height: 28, borderRadius: 6, border: 'none',
-            background: 'transparent', cursor: 'pointer', flexShrink: 0,
-            transition: 'background 80ms',
-          }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-          >
-            <svg width="14" height="18" viewBox="0 0 14 18" fill="none">
-              <path d="M0 0H14V6H7L0 0Z" fill="#e8e8e8" />
-              <path d="M0 6H7L14 12H0V6Z" fill="#e8e8e8" />
-              <path d="M0 12H7V18L0 12Z" fill="#e8e8e8" />
-            </svg>
-          </button>
-
-          {/* Separator */}
-          <div style={{ width: 1, height: 16, background: 'var(--border)', marginInline: 4 }} />
-
-          {/* Tool buttons */}
+        {/* Tools */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
           {TOOLS.map(tool => (
             <div key={tool.id} style={{ position: 'relative' }}>
               <button
                 onClick={() => setActiveTool(tool.id)}
                 style={{
-                  width: 28, height: 28,
+                  width: 32, height: 32,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  borderRadius: 5, border: 'none', cursor: 'pointer',
-                  background: activeTool === tool.id ? 'rgba(255,255,255,0.08)' : 'transparent',
-                  color: activeTool === tool.id ? '#e8e8e8' : '#555',
-                  transition: 'background 80ms, color 80ms',
+                  borderRadius: 6, border: 'none', cursor: 'pointer',
+                  background: activeTool === tool.id ? 'var(--surface-3)' : 'transparent',
+                  color: activeTool === tool.id ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                  transition: `all ${TOOLTIP_DURATION}s`,
                 }}
                 onMouseEnter={e => {
-                  setTooltip(tool.id)
+                  showTooltip(tool.id)
                   if (activeTool !== tool.id) {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-                    e.currentTarget.style.color = '#999'
+                    e.currentTarget.style.background = 'var(--surface-hover)'
+                    e.currentTarget.style.color = 'var(--text-secondary)'
                   }
                 }}
                 onMouseLeave={e => {
-                  setTooltip(null)
+                  hideTooltip()
                   if (activeTool !== tool.id) {
                     e.currentTarget.style.background = 'transparent'
-                    e.currentTarget.style.color = '#555'
+                    e.currentTarget.style.color = 'var(--text-tertiary)'
                   }
                 }}
               >
@@ -147,7 +163,7 @@ export default function Toolbar({ saveStatus = 'saved' }: Props) {
               </button>
               {tooltip === tool.id && (
                 <div className="framer-tooltip" style={{
-                  position: 'absolute', top: 36, left: '50%', transform: 'translateX(-50%)',
+                  position: 'absolute', top: 40, left: '50%', transform: 'translateX(-50%)',
                 }}>
                   {tool.label}
                   <span className="shortcut">{tool.shortcut}</span>
@@ -156,173 +172,84 @@ export default function Toolbar({ saveStatus = 'saved' }: Props) {
             </div>
           ))}
 
-          {/* Separator */}
-          <div style={{ width: 1, height: 16, background: 'var(--border)', marginInline: 4 }} />
-
           {/* Hand / pan tool */}
           <button
             onClick={() => setActiveTool(activeTool === 'hand' ? 'select' : 'hand')}
             style={{
-              width: 28, height: 28,
+              width: 32, height: 32,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              borderRadius: 5, border: 'none', cursor: 'pointer',
-              background: activeTool === 'hand' ? 'rgba(255,255,255,0.08)' : 'transparent',
-              color: activeTool === 'hand' ? '#e8e8e8' : '#444',
-              transition: 'background 80ms, color 80ms',
+              borderRadius: 6, border: 'none', cursor: 'pointer',
+              background: activeTool === 'hand' ? 'var(--surface-3)' : 'transparent',
+              color: activeTool === 'hand' ? 'var(--text-primary)' : 'var(--text-tertiary)',
+              transition: `all ${TOOLTIP_DURATION}s`,
+              marginLeft: 0,
             }}
             title="Pan (H)"
-            onMouseEnter={e => { e.currentTarget.style.background = activeTool === 'hand' ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#999' }}
-            onMouseLeave={e => { e.currentTarget.style.background = activeTool === 'hand' ? 'rgba(255,255,255,0.08)' : 'transparent'; e.currentTarget.style.color = activeTool === 'hand' ? '#e8e8e8' : '#444' }}
+            onMouseEnter={e => {
+              if (activeTool !== 'hand') {
+                e.currentTarget.style.background = 'var(--surface-hover)'
+                e.currentTarget.style.color = 'var(--text-secondary)'
+              }
+            }}
+            onMouseLeave={e => {
+              if (activeTool !== 'hand') {
+                e.currentTarget.style.background = 'transparent'
+                e.currentTarget.style.color = 'var(--text-tertiary)'
+              }
+            }}
           >
             <Hand size={15} strokeWidth={1.5} />
           </button>
         </div>
 
-        {/* ── CENTER: Breakpoint tabs — Framer segmented control ── */}
-        <div style={{
-          position: 'absolute', left: '50%', transform: 'translateX(-50%)',
-          display: 'flex', alignItems: 'center', gap: 0,
-          background: 'var(--surface-2)',
-          borderRadius: 6,
-          padding: 2,
-        }}>
-          {BREAKPOINTS.map((bp) => {
-            const isActive = activeBreakpoint === bp.id
-            return (
-              <button
-                key={bp.id}
-                onClick={() => handleBreakpoint(bp.id)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 4,
-                  padding: '3px 8px', height: 24,
-                  borderRadius: 4,
-                  border: 'none', cursor: 'pointer',
-                  background: isActive ? 'var(--surface-4)' : 'transparent',
-                  color: isActive ? '#e8e8e8' : '#666',
-                  fontSize: 11, fontWeight: isActive ? 500 : 400,
-                  transition: 'all 80ms',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                <span style={{ opacity: isActive ? 1 : 0.5 }}>{bp.icon}</span>
-                <span>{bp.label}</span>
-                <span style={{
-                  fontSize: 10,
-                  color: isActive ? '#888' : '#444',
-                  fontVariantNumeric: 'tabular-nums',
-                }}>{bp.width}</span>
-              </button>
-            )
-          })}
+        {/* Divider */}
+        <div style={{ width: 1, height: 24, background: 'var(--border)', marginInline: 4 }} />
 
-          <div style={{ width: 1, height: 14, background: 'var(--border)', marginInline: 2 }} />
+        {/* Right side: Save status, Preview, Avatar, Publish */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
 
-          <button
-            style={{
-              width: 20, height: 20, borderRadius: 4,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              border: 'none', cursor: 'pointer',
-              background: 'transparent', color: '#444',
-              transition: 'all 80ms',
-            }}
-            title="Add breakpoint"
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#888' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#444' }}
-          >
-            <Plus size={11} />
-          </button>
-        </div>
-
-        {/* ── RIGHT: Zoom, Preview, Avatar, Publish ── */}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
-
-          {/* Save status */}
           {saveStatus !== 'saved' && (
-            <span style={{ fontSize: 11, color: saveStatus === 'saving' ? '#555' : '#f5a623', marginRight: 4 }}>
-              {saveStatus === 'saving' ? 'Saving…' : '●'}
+            <span style={{
+              fontSize: 10, color: saveStatus === 'saving' ? 'var(--text-tertiary)' : 'var(--warning)',
+              marginRight: 2,
+            }}>
+              {saveStatus === 'saving' ? '…' : '●'}
             </span>
           )}
 
-          {/* Zoom */}
-          <div ref={zoomRef} style={{ position: 'relative' }}>
-            <button
-              onClick={() => setShowZoomMenu(v => !v)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 3,
-                padding: '3px 6px', borderRadius: 4, border: 'none',
-                background: showZoomMenu ? 'var(--surface-3)' : 'transparent',
-                color: '#666', cursor: 'pointer', fontSize: 11,
-                fontVariantNumeric: 'tabular-nums',
-                transition: 'background 80ms, color 80ms',
-              }}
-              onMouseEnter={e => { if (!showZoomMenu) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#999' } }}
-              onMouseLeave={e => { if (!showZoomMenu) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#666' } }}
-            >
-              {zoomPct}%
-              <ChevronDown size={10} />
-            </button>
-            {showZoomMenu && (
-              <div style={{
-                position: 'absolute', right: 0, top: 30, zIndex: 300,
-                background: '#1a1a1a', border: '1px solid #2a2a2a',
-                borderRadius: 6, padding: 3, minWidth: 120,
-                boxShadow: 'var(--shadow-dropdown)',
-              }}>
-                {ZOOM_PRESETS.map(pct => (
-                  <button
-                    key={pct}
-                    onClick={() => { setCanvas({ scale: pct / 100 }); setShowZoomMenu(false) }}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      width: '100%', padding: '4px 8px', borderRadius: 4,
-                      border: 'none', cursor: 'pointer', fontSize: 11,
-                      background: zoomPct === pct ? 'var(--surface-3)' : 'transparent',
-                      color: zoomPct === pct ? '#e8e8e8' : '#888',
-                      transition: 'background 60ms',
-                      fontFamily: 'var(--font-ui)',
-                    }}
-                    onMouseEnter={e => { if (zoomPct !== pct) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-                    onMouseLeave={e => { if (zoomPct !== pct) e.currentTarget.style.background = 'transparent' }}
-                  >
-                    {pct}%
-                    {zoomPct === pct && <span style={{ fontSize: 10, color: 'var(--accent)' }}>✓</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Separator */}
-          <div style={{ width: 1, height: 14, background: 'var(--border)', marginInline: 2 }} />
-
-          {/* Preview toggle */}
           {previewMode ? (
             <button
               onClick={() => setPreviewMode(false)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 5,
-                padding: '3px 8px', borderRadius: 5, border: 'none',
-                background: 'var(--surface-3)', color: '#e0e0e0',
-                cursor: 'pointer', fontSize: 11, fontWeight: 500,
-                transition: 'background 80ms',
+                display: 'flex', alignItems: 'center', gap: 4,
+                padding: '4px 8px', height: 28, borderRadius: 6,
+                border: 'none', background: 'var(--surface-3)',
+                color: 'var(--text-primary)', cursor: 'pointer', fontSize: 11,
+                fontWeight: 500, fontFamily: 'var(--font-ui)',
+                transition: `all ${TOOLTIP_DURATION}s`,
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-4)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface-3)')}
             >
-              <X size={11} /> Exit Preview
+              <X size={11} /> Exit
             </button>
           ) : (
             <button
               onClick={() => setPreviewMode(true)}
               title="Preview (Ctrl+Shift+P)"
               style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: 28, height: 28, borderRadius: 5, border: 'none',
-                background: 'transparent', color: '#555',
-                cursor: 'pointer', transition: 'background 80ms, color 80ms',
+                width: 28, height: 28, borderRadius: 6, border: 'none',
+                background: 'transparent', color: 'var(--text-tertiary)',
+                cursor: 'pointer', display: 'flex', alignItems: 'center',
+                justifyContent: 'center',
+                transition: `all ${TOOLTIP_DURATION}s`,
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#999' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#555' }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = 'var(--surface-hover)'
+                e.currentTarget.style.color = 'var(--text-secondary)'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'transparent'
+                e.currentTarget.style.color = 'var(--text-tertiary)'
+              }}
             >
               <Eye size={15} strokeWidth={1.5} />
             </button>
@@ -333,36 +260,34 @@ export default function Toolbar({ saveStatus = 'saved' }: Props) {
             width: 24, height: 24, borderRadius: '50%',
             background: 'linear-gradient(135deg, #667eea, #764ba2)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 10, fontWeight: 600, color: '#fff',
+            fontSize: 10, fontWeight: 600, color: 'var(--text-inverse)',
             flexShrink: 0, cursor: 'pointer',
             letterSpacing: '0.02em',
           }}>
             {userInitials}
           </div>
 
-          {/* Separator */}
-          <div style={{ width: 1, height: 14, background: 'var(--border)', marginInline: 2 }} />
-
-          {/* Publish */}
+          {/* Publish button */}
           <button
             onClick={() => setShowPublish(true)}
             style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              padding: '4px 10px', borderRadius: 6, border: 'none',
-              background: 'var(--accent)', color: '#fff',
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '4px 10px', height: 28, borderRadius: 6, border: 'none',
+              background: 'var(--accent)', color: 'var(--text-inverse)',
               cursor: 'pointer', fontSize: 11, fontWeight: 600,
               letterSpacing: '0.01em',
-              transition: 'background 80ms',
+              fontFamily: 'var(--font-ui)',
+              transition: `all ${TOOLTIP_DURATION}s`,
               boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
             }}
             onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-hover)' }}
             onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent)' }}
           >
-            <Play size={10} style={{ fill: '#fff', flexShrink: 0 }} />
+            <Play size={10} style={{ fill: 'var(--text-inverse)', flexShrink: 0 }} />
             Publish
           </button>
         </div>
-      </header>
+      </div>
 
       {showPublish && <PublishModal onClose={() => setShowPublish(false)} />}
     </>

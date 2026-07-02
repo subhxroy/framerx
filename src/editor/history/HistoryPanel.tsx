@@ -33,7 +33,7 @@ export default function HistoryPanel() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 6,
+        display: 'flex', alignItems: 'center', gap: 8,
         padding: '8px 12px', borderBottom: '1px solid var(--border)',
       }}>
         <button
@@ -42,7 +42,7 @@ export default function HistoryPanel() {
           style={{
             display: 'flex', alignItems: 'center', gap: 4,
             padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)',
-            background: 'var(--surface-2)', color: canUndo() ? 'var(--text-secondary)' : '#444',
+            background: 'var(--surface-2)', color: canUndo() ? 'var(--text-secondary)' : 'var(--text-disabled)',
             cursor: canUndo() ? 'pointer' : 'default', fontSize: 11,
           }}
           title="Undo"
@@ -55,7 +55,7 @@ export default function HistoryPanel() {
           style={{
             display: 'flex', alignItems: 'center', gap: 4,
             padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)',
-            background: 'var(--surface-2)', color: canRedo() ? 'var(--text-secondary)' : '#444',
+            background: 'var(--surface-2)', color: canRedo() ? 'var(--text-secondary)' : 'var(--text-disabled)',
             cursor: canRedo() ? 'pointer' : 'default', fontSize: 11,
           }}
           title="Redo"
@@ -66,7 +66,7 @@ export default function HistoryPanel() {
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 4 }}>
         {entries.length === 0 ? (
-          <div style={{ padding: 20, textAlign: 'center', color: '#555', fontSize: 11 }}>
+          <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 11 }}>
             No history yet
           </div>
         ) : (
@@ -79,24 +79,24 @@ export default function HistoryPanel() {
                 onClick={() => handleJump(i)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '6px 8px', borderRadius: 4, cursor: 'pointer',
+                  padding: '4px 8px', borderRadius: 4, cursor: 'pointer',
                   background: isCurrent ? 'rgba(0,145,255,0.08)' : 'transparent',
                   border: isCurrent ? '1px solid rgba(0,145,255,0.2)' : '1px solid transparent',
                 }}
                 onMouseEnter={e => { if (!isCurrent) e.currentTarget.style.background = 'var(--surface-2)' }}
                 onMouseLeave={e => { if (!isCurrent) e.currentTarget.style.background = 'transparent' }}
               >
-                <History size={12} style={{ color: isCurrent ? 'var(--accent)' : '#555', flexShrink: 0 }} />
+                <History size={12} style={{ color: isCurrent ? 'var(--accent)' : 'var(--text-tertiary)', flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 11, color: isCurrent ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: isCurrent ? 500 : 400 }}>
                     State {i + 1}
                   </div>
-                  <div style={{ fontSize: 10, color: '#555' }}>
+                  <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
                     {elementCount} elements · {timeStr(entry.timestamp)}
                   </div>
                 </div>
                 {isCurrent && (
-                  <span style={{ fontSize: 9, color: 'var(--accent)', background: 'var(--accent-dim)', padding: '1px 5px', borderRadius: 3 }}>
+                  <span style={{ fontSize: 9, color: 'var(--accent)', background: 'var(--accent-dim)', padding: '0 4px', borderRadius: 4 }}>
                     Current
                   </span>
                 )}

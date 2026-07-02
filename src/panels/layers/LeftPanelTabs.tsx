@@ -25,8 +25,8 @@ export default function LeftPanelTabs({ activeTab, onTabChange }: Props) {
       borderBottom: '1px solid var(--border)',
       background: 'var(--panel-bg)',
       flexShrink: 0,
-      paddingInline: 6,
-      gap: 1,
+      paddingInline: 8,
+      gap: 4,
     }}>
       {TABS.map(tab => {
         const isActive = activeTab === tab.id
@@ -40,25 +40,25 @@ export default function LeftPanelTabs({ activeTab, onTabChange }: Props) {
               borderRadius: 4,
               border: 'none',
               background: isActive ? 'var(--surface-3)' : 'transparent',
-              color: isActive ? '#e0e0e0' : '#555',
+              color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)',
               cursor: 'pointer',
               fontSize: 11,
               fontWeight: isActive ? 500 : 400,
               fontFamily: 'var(--font-ui)',
-              transition: 'all 80ms',
+              transition: 'all var(--duration-instant)',
               whiteSpace: 'nowrap',
               letterSpacing: '0.005em',
             }}
             onMouseEnter={e => {
               if (!isActive) {
                 e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-                e.currentTarget.style.color = '#999'
+                e.currentTarget.style.color = 'var(--text-secondary)'
               }
             }}
             onMouseLeave={e => {
               if (!isActive) {
                 e.currentTarget.style.background = 'transparent'
-                e.currentTarget.style.color = '#555'
+                e.currentTarget.style.color = 'var(--text-tertiary)'
               }
             }}
           >
@@ -71,16 +71,16 @@ export default function LeftPanelTabs({ activeTab, onTabChange }: Props) {
 
       <button
         style={{
-          width: 22, height: 22,
+          width: 20, height: 20,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           borderRadius: 4, border: 'none',
-          background: 'transparent', color: '#333',
-          cursor: 'pointer', transition: 'all 80ms',
+          background: 'transparent', color: 'var(--text-muted)',
+          cursor: 'pointer', transition: 'all var(--duration-instant)',
           flexShrink: 0,
         }}
         title="Add"
-        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#888' }}
-        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#333' }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'var(--text-secondary)' }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
       >
         <Plus size={12} />
       </button>

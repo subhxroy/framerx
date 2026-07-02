@@ -91,7 +91,7 @@ export default function AnimationSection({ elementId }: Props) {
               cursor: 'pointer',
               padding: 0,
               fontWeight: 500,
-              transition: 'color 0.1s',
+              transition: 'color var(--duration-normal)',
             }}
             onMouseEnter={e => e.currentTarget.style.color = 'var(--accent-hover)'}
             onMouseLeave={e => e.currentTarget.style.color = 'var(--accent)'}
@@ -114,11 +114,11 @@ export default function AnimationSection({ elementId }: Props) {
                   background: 'transparent', 
                   border: 'none', 
                   cursor: 'pointer',
-                  padding: '5px 8px',
+                  padding: '4px 8px',
                   fontSize: '11px',
                   textAlign: 'left',
                   borderRadius: 'var(--radius-sm)',
-                  transition: 'background 0.1s, color 0.1s',
+                  transition: 'background var(--duration-normal), color var(--duration-normal)',
                 }}
                 onMouseEnter={e => {
                   e.currentTarget.style.background = 'var(--surface-hover)'
@@ -156,7 +156,7 @@ export default function AnimationSection({ elementId }: Props) {
                   fontSize: '14px',
                   lineHeight: '1',
                   padding: 0,
-                  transition: 'color 0.1s',
+                  transition: 'color var(--duration-normal)',
                 }}
                 onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
                 onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
@@ -324,10 +324,10 @@ export default function AnimationSection({ elementId }: Props) {
                             flex: 1, height: '20px', fontSize: '9px',
                             fontWeight: isActive ? 600 : 400,
                             background: isActive ? 'var(--accent)' : 'var(--surface-2)',
-                            color: isActive ? '#fff' : 'var(--text-secondary)',
+                            color: isActive ? 'var(--text-inverse)' : 'var(--text-secondary)',
                             border: 'none', borderRadius: 'var(--radius-sm)',
                             cursor: 'pointer', fontFamily: 'inherit',
-                            transition: 'background 0.1s, color 0.1s',
+                            transition: 'background var(--duration-normal), color var(--duration-normal)',
                           }}
                           onMouseEnter={e => {
                             if (!isActive) e.currentTarget.style.background = 'var(--surface-hover)'

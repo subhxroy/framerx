@@ -24,12 +24,6 @@ export default function BlurSection() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <span style={{
-        fontSize: 10, color: 'var(--text-muted)',
-        textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 500,
-      }}>
-        Blur
-      </span>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <NumberInput
           label="Layer"
@@ -49,7 +43,7 @@ export default function BlurSection() {
         />
       </div>
       {(blur > 0 || backdropBlur > 0) && (
-        <p style={{ fontSize: 10, color: '#555', margin: 0 }}>
+        <p style={{ fontSize: 10, color: 'var(--text-tertiary)', margin: 0 }}>
           {blur > 0 ? `Layer blur: filter: blur(${blur}px)  ` : ''}
           {backdropBlur > 0 ? `BG blur: backdrop-filter: blur(${backdropBlur}px)` : ''}
         </p>

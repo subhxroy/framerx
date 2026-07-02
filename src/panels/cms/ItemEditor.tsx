@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useCMSStore, type CMSFieldType } from '@/store/cmsStore'
 import { ArrowLeft } from 'lucide-react'
 
@@ -14,17 +14,31 @@ export default function ItemEditor({ collectionId, itemId, onBack }: Props) {
   const updateItem = useCMSStore((s) => s.updateItem)
   const item = items.find((i) => i.id === itemId)
   const [values, setValues] = useState<Record<string, unknown>>({})
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const latestRef = useRef(values)
 
   useEffect(() => {
-    if (item) setValues({ ...item.values })
+    if (item) {
+      const v = { ...item.values }
+      setValues(v)
+      latestRef.current = v
+    }
   }, [item])
+
+  useEffect(() => {
+    return () => clearTimeout(debounceRef.current)
+  }, [])
 
   if (!collection || !item) return null
 
   const setVal = (fieldId: string, val: unknown) => {
     const next = { ...values, [fieldId]: val }
     setValues(next)
-    updateItem(collectionId, itemId, next)
+    latestRef.current = next
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      updateItem(collectionId, itemId, latestRef.current)
+    }, 300)
   }
 
   return (
@@ -71,13 +85,12 @@ function FieldInput({
   onChange: (val: unknown) => void
 }) {
   const strVal = String(value ?? '')
-  const numVal = typeof value === 'number' ? value : 0
   const boolVal = typeof value === 'boolean' ? value : false
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
     fontSize: 'var(--text-xs)',
-    padding: '2px 4px',
+    padding: '4px 4px',
     borderRadius: 4,
     background: 'var(--surface-1)',
     color: 'var(--text-primary)',
@@ -88,8 +101,13 @@ function FieldInput({
   switch (type) {
     case 'rich-text':
       return <textarea style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} value={strVal} onChange={(e) => onChange(e.target.value)} />
-    case 'number':
-      return <input type="number" style={inputStyle} value={numVal} onChange={(e) => onChange(parseFloat(e.target.value) || 0)} />
+    case 'number': {
+      const numDisplay = value === '' ? '' : String(value ?? '')
+      return <input type="number" style={inputStyle} value={numDisplay} onChange={(e) => {
+        const v = e.target.value
+        onChange(v === '' ? '' : parseFloat(v))
+      }} />
+    }
     case 'boolean':
       return <input type="checkbox" checked={boolVal} onChange={(e) => onChange(e.target.checked)} />
     case 'date':

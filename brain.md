@@ -5,8 +5,8 @@
 **Project:** A Framer-inspired visual website builder (drag-drop canvas, inspector panels, CMS, animations, export)
 **Author:** Subhankar Roy
 **License:** MIT
-**Status:** ~78% complete (per REPO_AUDIT.md)
-**Total:** ~70 TS/TSX files, ~11,917 LOC
+**Status:** ~88% complete
+**Total:** ~85 TS/TSX files, ~14,500 LOC
 
 ---
 
@@ -27,6 +27,8 @@
 | **Linting** | oxlint 1.69 |
 | **SEO** | react-helmet-async (per-page meta tags, JSON-LD structured data) |
 | **Path alias** | `@/` → `./src` |
+**Edge Functions** | Deno 2 (Supabase) — ai-design copilot |
+**Edge Runtime** | Supabase Edge Functions (via `supabase functions serve`) |
 
 ---
 
@@ -72,21 +74,30 @@ framer/
 │   │   │   ├── AnimatedElement.tsx  # motion.div wrapper for interactions
 │   │   │   └── types.ts        # Re-exports Element type
 │   │   ├── selection/
-│   │   │   ├── SelectionManager.tsx  # Moveable + Selecto integration
-│   │   │   ├── SmartGuides.tsx       # Alignment snapping
+│   │   │   ├── SelectionManager.tsx  # Moveable + Selecto integration (click-nest, drag-nest, smart-guides)
+│   │   │   ├── SmartGuides.tsx       # Alignment snapping (16px snap grid, edge/center)
 │   │   │   └── AlignmentBar.tsx      # Multi-select alignment controls
-│   │   ├── history/            # (empty — undo/redo in editorStore)
-│   │   └── transform/          # (empty)
+│   │   ├── canvas/
+│   │   │   ├── Canvas.tsx       # Infinite canvas + pan/zoom/draw/DnD
+│   │   │   ├── CanvasRulers.tsx # Tick-mark rulers for canvas
+│   │   │   └── InstanceBadge.tsx # Component instance badges on canvas
+│   │   ├── history/
+│   │   │   └── HistoryPanel.tsx # Snapshot list with jump-to-state
+│   │   └── transform/
+│   │       └── TransformPanel.tsx # X/Y/W/H/Rotate/Opacity inputs
 │   │
 │   ├── panels/
 │   │   ├── toolbar/
 │   │   │   └── Toolbar.tsx         # Tools, breakpoints, zoom, preview, publish
 │   │   ├── layers/
-│   │   │   ├── LayersPanel.tsx     # Flattened tree, search, DnD reorder
-│   │   │   ├── LayerRow.tsx        # Individual layer row (sortable)
-│   │   │   └── LeftPanelTabs.tsx   # Tabs: Layers | Components | Assets | CMS
+│   │   │   ├── LayersPanel.tsx     # Flattened tree, search, DnD reorder, page management
+│   │   │   ├── LayerRow.tsx        # Individual layer row (sortable, hover/select highlight)
+│   │   │   ├── LeftPanelTabs.tsx   # Tabs: Layers | Components | Assets | CMS
+│   │   │   └── LeftPanelRail.tsx   # Vertical rail with icon tabs (+ Copilot wand icon)
 │   │   ├── inspector/
-│   │   │   ├── InspectorPanel.tsx  # Style/Agent/Code tabs, sections
+│   │   │   ├── InspectorPanel.tsx  # Design/Agent/Code tabs, collapsible sections
+│   │   │   ├── InspectorSection.tsx # Collapsible section header shared across all sections
+│   │   │   ├── SegmentedControl.tsx # Segmented control widget (2-3 options)
 │   │   │   ├── LayoutSection.tsx   # x, y, w, h, rotation, sizing mode
 │   │   │   ├── AutoLayoutSection.tsx  # Flexbox controls
 │   │   │   ├── TypographySection.tsx  # Font, size, weight, alignment
@@ -100,9 +111,9 @@ framer/
 │   │   │   ├── InteractionSection.tsx  # Hover/tap/appear/inview + actions
 │   │   │   ├── CMSBindingSection.tsx   # Bind element to CMS field
 │   │   │   ├── CodePanel.tsx       # Raw CSS/React export preview
-│   │   │   ├── ColorPicker.tsx     # Custom color picker
-│   │   │   ├── NumberInput.tsx     # Number field with step/unit
-│   │   │   ├── RespNumberInput.tsx # Responsive number input
+│   │   │   ├── ColorPicker.tsx     # Custom color picker (EyeDropper API support)
+│   │   │   ├── NumberInput.tsx     # Number field with step/unit/label
+│   │   │   ├── RespNumberInput.tsx # Responsive number input (X/Y for breakpoints)
 │   │   │   └── useInstanceUpdate.ts   # Instance override hook
 │   │   ├── components/
 │   │   │   ├── ComponentsPanel.tsx    # Preset + user component library
@@ -114,6 +125,8 @@ framer/
 │   │   │   └── ItemEditor.tsx        # Single item form editor
 │   │   ├── assets/
 │   │   │   └── AssetsPanel.tsx       # Upload from file/URL, drag to canvas
+│   │   ├── copilot/
+│   │   │   └── CopilotPanel.tsx   # AI Copilot: chat UI, Generate/Redesign toggle, explanation cards, Accept/Discard/Refine
 │   │   ├── context/
 │   │   │   └── ContextMenu.tsx       # Right-click context menu
 │   │   └── publish/
@@ -121,26 +134,32 @@ framer/
 │   │
 │   ├── components/
 │   │   ├── CommandPalette.tsx    # Cmd+K command palette
-│   │   ├── ErrorBoundary.tsx     # Error boundary wrapper
-│   │   ├── Popover.tsx           # Reusable popover
-│   │   ├── PressableButton.tsx   # Press-button component
+│   │   ├── ErrorBoundary.tsx     # Error boundary wrapper (uses --error CSS var)
+│   │   ├── Popover.tsx           # Reusable popover (click-outside + position)
+│   │   ├── PressableButton.tsx   # Press-button component with spring feedback
 │   │   ├── ProtectedRoute.tsx    # Auth guard wrapper
-│   │   ├── ScrollArea.tsx        # Scroll area component
+│   │   ├── ScrollArea.tsx        # Scroll area component (custom, no scrollbar chrome)
 │   │   ├── SEO.tsx               # Per-page meta tags (helmet)
 │   │   ├── StructuredData.tsx    # JSON-LD schema helpers
-│   │   └── ToastHost.tsx         # Toast notification container
+│   │   └── ToastHost.tsx         # Toast notification container (zustand-driven)
 │   │
 │   ├── store/
 │   │   ├── editorStore.ts   # Elements, selection, canvas, undo/redo, components
 │   │   ├── projectStore.ts  # Project CRUD, save/load project data
 │   │   ├── authStore.ts     # User state, signIn/signUp/signOut
 │   │   ├── cmsStore.ts      # Collections, fields, items (CRUD)
-│   │   └── assetsStore.ts   # Image assets (add from file/URL, remove)
+│   │   ├── assetsStore.ts   # Image assets (add from file/URL, remove)
+│   │   ├── uiStore.ts       # Panel layout state: left/right widths, active panel tabs, copilot width
+│   │   ├── hoverStore.ts    # Canvas→Layers hover sync (element hover state + source tracking)
+│   │   ├── toastStore.ts    # Toast notification queue (auto-dismiss, stack)
+│   │   └── copilotStore.ts  # AI Copilot: messages, generation output, accept/discard, 30s timeout
 │   │
 │   ├── hooks/
 │   │   ├── useKeyboard.ts       # Delete, duplicate, undo/redo, group, arrows, tab
 │   │   ├── useClipboard.ts      # Copy/cut/paste elements
 │   │   ├── useAutoSave.ts       # Auto-save (2s debounce) + Ctrl+S
+│   │   ├── useHoverIntent.ts    # Canvas hover→Layers sync with delay
+│   │   ├── useScrollShadow.ts   # Scroll-triggered top/bottom shadow
 │   │   └── useViewportBounds.ts # Canvas viewport for virtualization
 │   │
 │   ├── lib/
@@ -153,6 +172,9 @@ framer/
 │   │   ├── coords.ts            # getAbsolutePos
 │   │   ├── clipboard.ts         # Cross-tab clipboard via localStorage
 │   │   ├── ai.ts                # OpenRouter chat, element context builder, JSON patch parser
+│   │   ├── motionTokens.ts      # Shared duration/easing/spring tokens (SPRING.ui, DELAY, THRESHOLD)
+│   │   ├── extractDesignTokens.ts # Extracts design tokens from canvas elements (colors/spacing/fonts/radii)
+│   │   ├── flashElements.ts     # Visual flash highlight on selected elements
 │   │   └── export/
 │   │       ├── cssGenerator.ts  # Generate CSS from elements
 │   │       ├── htmlExporter.ts  # Export to static HTML file
@@ -319,11 +341,13 @@ Element {
 **Layout:** Toolbar (top) → Main area (flex row).
 
 **Main Area:**
-- Left panel (resizable, 180-400px) with tabs: Layers | Components | CMS | Assets
+- Left panel rail (44px fixed) — icons for Layers, Components, Assets, CMS, Copilot, spacer
+- Left secondary panel (resizable, 180-400px) — active tab content (Layers/Components/Assets/CMS)
 - Resize dividers (4px, hover highlight)
 - Canvas (flex-1, center)
+- Right-side Copilot panel (360px, animated) — visible only when copilot is active
 - Right panel (resizable, 200-360px) — Inspector Panel
-- Preview mode hides both side panels
+- Preview mode hides all side panels
 
 **Editor bootsrap:**
 1. Load project data + CMS data via `Promise.all`
@@ -346,10 +370,15 @@ Element {
 - **Smart nesting:** Drawing over a frame nests the new element into that frame
 - **Drop:** Assets (via `ASSET_DND_TYPE`), user components (`text/x-framer-master`), preset components (`text/plain`)
 - **Viewport virtualization:** Root elements outside viewport get `display: none`
-- **Grid dots:** Dynamic dot pattern background
+- **Grid dots:** Dynamic dot pattern background (scales with zoom, fades below 25%)
+- **Tick-mark rulers:** Top + left canvas rulers with tick marks at correct zoom scale
+- **Instance badges:** "Instance of ComponentName" label on component instances
 - **Breakpoint overlay:** Non-desktop modes show centered viewport with dim backdrop
 - **Context menu:** Right-click on elements
+- **Hierarchical click selection:** Click child elements to select directly (not just root frames)
 - **Deep select:** Cmd/Ctrl+click selects deepest nested element under pointer
+- **Canvas hover→Layers sync:** Hovering an element highlights it in Layers panel
+- **AI Copilot preview overlay:** Dashed accent rects + labels for AI-generated elements
 
 ### 7.2 Elements
 
@@ -714,7 +743,24 @@ Defined in `src/index.css`:
 
 ---
 
-## 21. BUILD & DEV
+## 21. AI COPILOT
+
+The AI Copilot is a full-stack feature spanning a Supabase Edge Function (Deno) and a React chat panel.
+
+**Architecture:**
+1. **Edge Function** (`supabase/functions/ai-design/index.ts`) — receives prompt + design tokens, forwards to AI provider (OpenRouter default), validates structured JSON output, returns generation data
+2. **copilotStore** (`src/store/copilotStore.ts`) — manages messages, streaming state, generated output, accept/discard flow
+3. **CopilotPanel** (`src/panels/copilot/CopilotPanel.tsx`) — chat UI with Generate/Redesign mode, explanation cards (Type/Move/Palette/Layout/..., with lucide icons), Accept/Discard/Refine buttons
+4. **design token extraction** (`src/lib/extractDesignTokens.ts`) — extracts top 10 colors, font sizes/weights, 4px-grid spacing, border radii from canvas to ground the AI
+5. **Preview overlay** (`Canvas.tsx`) — dashed accent-colored rects at reduced opacity with label badges for AI-generated changes
+
+**Flow:** User prompt → token extraction → Edge Function → structured response → explanation cards → preview overlay → Accept (flattens tree + addElementTree + pushHistory) or Discard
+
+**Limits:** 20 req/min/user rate limiting, 30s client timeout with AbortController.
+
+---
+
+## 22. BUILD & DEV
 
 ```bash
 npm run dev      # Vite dev server
@@ -723,9 +769,10 @@ npm run start    # Production server (serves dist/ with SPA fallback on :3000)
 npm run preview  # Vite preview
 npm run lint     # oxlint
 node server.js   # Auto-install + Vite + optional Supabase (all-in-one start)
+npx supabase functions serve ai-design --no-verify-jwt  # AI Copilot Edge Function (local)
 ```
 
-## 21.1 Deployment Configs
+## 23. Deployment Configs
 
 ### Netlify (`netlify.toml`)
 
@@ -776,34 +823,45 @@ node server.js   # Auto-install + Vite + optional Supabase (all-in-one start)
 | Area | Status |
 |------|--------|
 | Canvas (pan/zoom/draw) | ✅ WORKING |
+| Canvas rulers (tick marks) | ✅ WORKING |
 | Elements (frame/text/image/shape) | ✅ WORKING |
+| Instance badges | ✅ WORKING |
+| Hierarchical click selection (direct child select) | ✅ WORKING |
 | Selection (click/drag/marquee) | ✅ WORKING |
 | Moveable (drag/resize/rotate) | ✅ WORKING |
-| Layers panel | ✅ WORKING |
+| Smart guides (snapping) | ✅ WORKING |
+| Layers panel (tree, search, DnD, pages) | ✅ WORKING |
+| Canvas→Layers hover sync | ✅ WORKING |
 | Inspector (layout/border/shadow/blur/typography) | ✅ WORKING |
-| Color picker | ✅ WORKING |
+| Collapsible inspector sections | ✅ WORKING |
+| Color picker (+ EyeDropper API) | ✅ WORKING |
 | Auto-layout (flex) | ✅ WORKING |
 | Animations (hover/tap/appear/inview) | ✅ WORKING |
 | Breakpoints (switch + overrides) | ✅ WORKING |
-| Component system (instances + overrides) | ✅ WORKING |
+| Component system (instances + overrides + variants) | ✅ WORKING |
 | CMS (collections/fields/items/binding) | ✅ WORKING |
 | Preset components (17 items) | ✅ WORKING |
-| Export HTML/CSS/React | ✅ WORKING |
+| Export HTML/CSS/React (+ SEO) | ✅ WORKING |
 | Auth (email + Google) | ✅ WORKING |
 | Dashboard (CRUD projects) | ✅ WORKING |
 | Keyboard shortcuts | ✅ WORKING |
 | Clipboard (copy/cut/paste) | ✅ WORKING |
-| Undo/redo | ✅ WORKING |
-| Auto-save | ✅ WORKING |
-| Publish/deploy to Supabase | ✅ WORKING |
+| Undo/redo (100-entry history) | ✅ WORKING |
+| Auto-save (2s debounce + Cmd+S) | ✅ WORKING |
+| Publish/deploy to Supabase Storage | ✅ WORKING |
 | SEO / AEO (meta tags, OG, JSON-LD, robots.txt, sitemap) | ✅ WORKING |
-| Command palette | ⏳ PARTIAL (UI exists) |
-| Context menu | ⏳ PARTIAL (UI exists) |
-| Smart guides | ⏳ PARTIAL (basic) |
-| History panel | ✅ WORKING (snapshot list, jump-to-state, undo/redo buttons) |
-| Transform panel | ✅ WORKING (X/Y/W/H/rotate/opacity number inputs) |
-| AI Agent (OpenRouter) | ✅ WORKING (streaming chat, element context injection, JSON patch parsing + apply) |
-| **Overall** | **~78%** |
+| Command palette | ✅ WORKING |
+| Context menu | ✅ WORKING |
+| History panel (snapshot list) | ✅ WORKING |
+| Transform panel (X/Y/W/H/rotate/opacity) | ✅ WORKING |
+| Toast notifications | ✅ WORKING |
+| Toolbar (tools, breakpoints, zoom, preview, publish) | ✅ WORKING |
+| AI Agent (OpenRouter streaming) | ✅ WORKING |
+| AI Copilot (Edge Function + chat + preview overlay) | ✅ WORKING |
+| Design token extraction (for AI grounding) | ✅ WORKING |
+| Scroll-linked animations | ✅ WORKING |
+| Hand tool (H key pan) | ✅ WORKING |
+| **Overall** | **~88%** |
 
 ---
 

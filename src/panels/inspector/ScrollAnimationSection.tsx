@@ -77,7 +77,7 @@ export default function ScrollAnimationSection({ elementId }: Props) {
             cursor: 'pointer',
             padding: 0,
             fontWeight: 500,
-            transition: 'color 0.1s',
+            transition: 'color var(--duration-normal)',
           }}
           onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent-hover)')}
           onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--accent)')}
@@ -134,7 +134,7 @@ export default function ScrollAnimationSection({ elementId }: Props) {
                     fontSize: '14px',
                     lineHeight: '1',
                     padding: 0,
-                    transition: 'color 0.1s',
+                    transition: 'color var(--duration-normal)',
                   }}
                   onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
                   onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}

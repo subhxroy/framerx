@@ -41,7 +41,7 @@ export default function CMSBindingSection({ elementId }: Props) {
               background: 'transparent', 
               cursor: 'pointer',
               padding: 0,
-              transition: 'color 0.1s',
+              transition: 'color var(--duration-normal)',
             }}
             onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
             onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}

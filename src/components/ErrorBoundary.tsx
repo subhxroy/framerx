@@ -31,7 +31,7 @@ export default class ErrorBoundary extends Component<Props, State> {
           className="flex flex-col items-center justify-center p-4 gap-1"
           style={{ background: 'var(--surface-2)' }}
         >
-          <span className="text-xs font-medium" style={{ color: '#f87171' }}>
+          <span className="text-xs font-medium" style={{ color: 'var(--error)' }}>
             {this.props.name || 'Error'}
           </span>
           <span className="text-xs" style={{ color: 'var(--text-muted)', textAlign: 'center' }}>

@@ -7,9 +7,21 @@ import SmartGuides from './SmartGuides'
 import AlignmentBar from './AlignmentBar'
 import { findContainerAt } from '@/lib/hitTest'
 import { getAbsolutePos } from '@/lib/coords'
+import { THRESHOLD } from '@/lib/motionTokens'
 
 interface Props {
   containerRef: React.RefObject<HTMLDivElement | null>
+}
+
+// Maps a Moveable resize direction ([x, y] each in {-1,0,1}) to the matching
+// directional cursor, so we can pin it to the body during a fast resize where
+// the pointer overshoots the handle. Corners → diagonal, edges → straight.
+function resizeCursorFor(direction: number[]): string {
+  const [x, y] = direction
+  if (x !== 0 && y !== 0) return x === y ? 'nwse-resize' : 'nesw-resize'
+  if (x !== 0) return 'ew-resize'
+  if (y !== 0) return 'ns-resize'
+  return 'default'
 }
 
 export default function SelectionManager({ containerRef }: Props) {
@@ -48,6 +60,22 @@ export default function SelectionManager({ containerRef }: Props) {
   const rotateEndState = useRef<Record<string, number>>({})
   const selectoRef = useRef<Selecto | null>(null)
   const selectoContainerRef = useRef<HTMLDivElement>(null)
+  // During a drag the pointer routinely outruns the element and leaves its
+  // hover area, so the 'grabbing' cursor must be forced on the body, not the
+  // element. Restored on end. Tracks whether the element actually moved so a
+  // click that never crosses THRESHOLD.dragStart doesn't push a history entry.
+  const dragMoved = useRef(false)
+  const moveableRef = useRef<any>(null)
+
+  useEffect(() => {
+    if (moveableRef.current) {
+      try {
+        moveableRef.current.updateRect()
+      } catch (err) {
+        console.warn('Moveable updateRect failed', err)
+      }
+    }
+  }, [canvas.x, canvas.y, canvas.scale, elements, selectedIds])
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -85,7 +113,7 @@ export default function SelectionManager({ containerRef }: Props) {
       dragContainer: selectoContainerRef.current,
       selectableTargets: ['[data-element-id]'],
       hitRate: 0,
-      selectByClick: true,
+      selectByClick: false,
       selectFromInside: false,
       toggleContinueSelect: ['shift'],
       ratio: 0,
@@ -132,6 +160,21 @@ export default function SelectionManager({ containerRef }: Props) {
     }
     setTargets(els)
   }, [selectedIds, elements, editingId])
+
+  // Selection GLIDE: when the selected id(s) change, briefly enable the
+  // transition on the Moveable box (via body.mv-gliding) so it slides to the
+  // new element instead of teleporting, then remove the class so the box
+  // tracks live drags/resizes with zero lag. Keyed on the selection identity.
+  const selKey = selectedIds.join(',')
+  useEffect(() => {
+    if (!selKey) return
+    document.body.classList.add('mv-gliding')
+    const t = window.setTimeout(() => document.body.classList.remove('mv-gliding'), 160)
+    return () => {
+      window.clearTimeout(t)
+      document.body.classList.remove('mv-gliding')
+    }
+  }, [selKey])
 
   useEffect(() => {
     if (selectoRef.current) {
@@ -192,6 +235,7 @@ export default function SelectionManager({ containerRef }: Props) {
 
       {targets.length > 0 && (
         <Moveable
+          ref={moveableRef}
           target={targets}
           container={containerRef.current ?? undefined}
           draggable={true}
@@ -201,15 +245,15 @@ export default function SelectionManager({ containerRef }: Props) {
           snapDirections={{ top: true, left: true, bottom: true, right: true, center: true, middle: true }}
           elementSnapDirections={{ top: true, left: true, bottom: true, right: true, center: true, middle: true }}
           snapTarget={snapTargets || undefined}
-          snapGridWidth={10}
-          snapGridHeight={10}
+          snapGridWidth={4}
+          snapGridHeight={4}
           snapCenter={true}
           isDisplaySnapDigit={true}
           isDisplayInnerSnapDigit={true}
           snapDigit={0}
           horizontalGuidelines={[]}
           verticalGuidelines={[]}
-          snapThreshold={5}
+          snapThreshold={THRESHOLD.snapDistance}
           keepRatio={shiftHeld}
           throttleDrag={0}
           throttleResize={0}
@@ -221,15 +265,23 @@ export default function SelectionManager({ containerRef }: Props) {
           padding={{ left: 0, top: 0, right: 0, bottom: 0 }}
           useResizeObserver={true}
           onDragStart={({ target: t }) => {
-            pushHistory()
             const id = (t as HTMLElement).getAttribute('data-element-id')
             draggedIdRef.current = id
             dropTargetRef.current = null
+            dragMoved.current = false
+            document.body.classList.remove('mv-gliding')
+            document.body.style.cursor = 'grabbing'
             if (id) setDraggingId(id)
           }}
           onDrag={({ target: t, left, top, clientX, clientY }) => {
             const id = (t as HTMLElement).getAttribute('data-element-id')
             if (!id) return
+            // Defer the undo checkpoint to the first real movement so a bare
+            // click (no threshold crossing) never leaves a spurious history entry.
+            if (!dragMoved.current) {
+              dragMoved.current = true
+              pushHistory()
+            }
             const el = elements[id]
             if (!el) return
             const parent = el.parentId ? elements[el.parentId] : null
@@ -284,6 +336,7 @@ export default function SelectionManager({ containerRef }: Props) {
           onDragEnd={() => {
             setDimLabel(null)
             setDraggingId(null)
+            document.body.style.cursor = ''
             const draggedId = draggedIdRef.current
             const newParentId = dropTargetRef.current
             draggedIdRef.current = null
@@ -325,7 +378,7 @@ export default function SelectionManager({ containerRef }: Props) {
             }
             dragEndPos.current = {}
           }}
-          onResizeStart={({ target: t }) => {
+          onResizeStart={({ target: t, direction }) => {
             pushHistory()
             resizeEndState.current = {}
             const id = (t as HTMLElement).getAttribute('data-element-id')
@@ -333,6 +386,10 @@ export default function SelectionManager({ containerRef }: Props) {
             resizeStartCenter.current = el
               ? { x: el.x + el.width / 2, y: el.y + el.height / 2 }
               : null
+            document.body.classList.remove('mv-gliding')
+            // Force the directional cursor onto the body so it holds even as the
+            // pointer overshoots the handle during a fast resize.
+            document.body.style.cursor = resizeCursorFor(direction)
           }}
           onResize={({ target: t, width, height, delta, direction }) => {
             const id = (t as HTMLElement).getAttribute('data-element-id')
@@ -354,12 +411,13 @@ export default function SelectionManager({ containerRef }: Props) {
           onResizeEnd={() => {
             setDimLabel(null)
             resizeStartCenter.current = null
+            document.body.style.cursor = ''
             for (const [id, changes] of Object.entries(resizeEndState.current)) {
               updateElementRef.current(id, changes)
             }
             resizeEndState.current = {}
           }}
-          onRotateStart={() => { pushHistory(); rotateEndState.current = {} }}
+          onRotateStart={() => { pushHistory(); rotateEndState.current = {}; document.body.style.cursor = 'grabbing' }}
           onRotate={({ target: t, rotation }) => {
             const id = (t as HTMLElement).getAttribute('data-element-id')
             if (id) {
@@ -370,6 +428,7 @@ export default function SelectionManager({ containerRef }: Props) {
           }}
           onRotateEnd={() => {
             setDimLabel(null)
+            document.body.style.cursor = ''
             for (const [id, rotation] of Object.entries(rotateEndState.current)) {
               updateElementRef.current(id, { rotation })
             }
@@ -409,7 +468,7 @@ export default function SelectionManager({ containerRef }: Props) {
               height: r.height,
               border: '2px solid var(--accent)',
               borderRadius: 4,
-              boxShadow: 'inset 0 0 0 9999px rgba(0,153,255,0.06)',
+              boxShadow: 'inset 0 0 0 9999px var(--accent-dim)',
             }}
           />
         )
@@ -425,7 +484,7 @@ export default function SelectionManager({ containerRef }: Props) {
             height: insertionLine.h,
             background: 'var(--accent)',
             borderRadius: 1,
-            boxShadow: '0 0 4px rgba(0,153,255,0.6)',
+            boxShadow: '0 0 4px var(--accent-border)',
           }}
         />
       )}
@@ -438,7 +497,7 @@ export default function SelectionManager({ containerRef }: Props) {
             top: dimLabel.y,
             transform: 'translateX(-50%)',
             background: 'var(--accent)',
-            color: '#fff',
+            color: 'var(--text-inverse)',
             fontSize: 11,
             fontWeight: 500,
             padding: '2px 8px',

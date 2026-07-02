@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'motion/react'
 import { useEditorStore } from '@/store/editorStore'
 import { useProjectStore } from '@/store/projectStore'
 import { useCMSStore } from '@/store/cmsStore'
+import { useUIStore } from '@/store/uiStore'
 import Toolbar from '@/panels/toolbar/Toolbar'
 import Canvas from '@/editor/canvas/Canvas'
 import LayersPanel from '@/panels/layers/LayersPanel'
@@ -10,10 +12,7 @@ import ComponentsPanel from '@/panels/components/ComponentsPanel'
 import CMSPanel from '@/panels/cms/CMSPanel'
 import AssetsPanel from '@/panels/assets/AssetsPanel'
 import InspectorPanel from '@/panels/inspector/InspectorPanel'
-import LeftPanelTabs from '@/panels/layers/LeftPanelTabs'
-import HistoryPanel from '@/editor/history/HistoryPanel'
-import TransformPanel from '@/editor/transform/TransformPanel'
-import type { PanelTab } from '@/panels/layers/LeftPanelTabs'
+import LeftPanelRail from '@/panels/layers/LeftPanelRail'
 import useKeyboard from '@/hooks/useKeyboard'
 import useClipboard from '@/hooks/useClipboard'
 import { useAutoSave } from '@/hooks/useAutoSave'
@@ -21,31 +20,30 @@ import ErrorBoundary from '@/components/ErrorBoundary'
 import CommandPalette from '@/components/CommandPalette'
 import ToastHost from '@/components/ToastHost'
 import SEO from '@/components/SEO'
+import HistoryPanel from '@/editor/history/HistoryPanel'
+import TransformPanel from '@/editor/transform/TransformPanel'
+import { DURATION, EASE } from '@/lib/motionTokens'
 import { createStarterProjectData, looksLikePlaceholderProject } from '@/lib/defaultProject'
 import type { Element } from '@/store/editorStore'
-
-const LEFT_MIN = 180
-const LEFT_MAX = 400
-const RIGHT_MIN = 200
-const RIGHT_MAX = 360
-const LEFT_DEFAULT = 220
-const RIGHT_DEFAULT = 240
+import CopilotPanel from '@/panels/copilot/CopilotPanel'
+import { COPILOT_WIDTH } from '@/store/uiStore'
 
 export default function Editor() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
-  const [leftTab, setLeftTab] = useState<PanelTab>('layers')
+  const activeLeftPanel = useUIStore(s => s.activeLeftPanel)
+  const setActiveLeftPanel = useUIStore(s => s.setActiveLeftPanel)
+  const rightPanelWidth = useUIStore(s => s.rightPanelWidth)
+  const setRightPanelWidth = useUIStore(s => s.setRightPanelWidth)
   const [showPalette, setShowPalette] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
-  const [leftWidth, setLeftWidth] = useState(LEFT_DEFAULT)
-  const [rightWidth, setRightWidth] = useState(RIGHT_DEFAULT)
   const previewMode = useEditorStore((s) => s.previewMode)
   const loadProjectData = useProjectStore((s) => s.loadProjectData)
   const getProject = useProjectStore((s) => s.getProject)
   const loadCMSData = useCMSStore((s) => s.loadCMSData)
   const saveStatus = useAutoSave(projectId)
 
-  const dragState = useRef<{ side: 'left' | 'right'; startX: number; startW: number } | null>(null)
+  const dragState = useRef<{ startX: number; startW: number } | null>(null)
 
   useKeyboard()
   useClipboard()
@@ -93,20 +91,16 @@ export default function Editor() {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown)
   }, [handleGlobalKeyDown])
 
-  const handleDividerPointerDown = useCallback((side: 'left' | 'right') => (e: React.PointerEvent) => {
+  const handleRightDividerPointerDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault()
-    const startW = side === 'left' ? leftWidth : rightWidth
-    dragState.current = { side, startX: e.clientX, startW }
+    const startW = rightPanelWidth
+    dragState.current = { startX: e.clientX, startW }
 
     const onMove = (ev: PointerEvent) => {
       if (!dragState.current) return
       const dx = ev.clientX - dragState.current.startX
-      const newW = dragState.current.startW + (dragState.current.side === 'left' ? dx : -dx)
-      const clamped = dragState.current.side === 'left'
-        ? Math.min(LEFT_MAX, Math.max(LEFT_MIN, newW))
-        : Math.min(RIGHT_MAX, Math.max(RIGHT_MIN, newW))
-      if (dragState.current.side === 'left') setLeftWidth(clamped)
-      else setRightWidth(clamped)
+      const newW = dragState.current.startW - dx
+      setRightPanelWidth(newW)
     }
 
     const onUp = () => {
@@ -121,7 +115,7 @@ export default function Editor() {
     document.body.style.userSelect = 'none'
     document.addEventListener('pointermove', onMove)
     document.addEventListener('pointerup', onUp)
-  }, [leftWidth, rightWidth])
+  }, [rightPanelWidth, setRightPanelWidth])
 
   if (loadingData) {
     return (
@@ -155,74 +149,109 @@ export default function Editor() {
         noIndex
       />
       <div
-        className="flex flex-col h-full w-full"
+        className="flex h-full w-full"
         style={{ background: 'var(--app-bg)' }}
       >
-      <Toolbar saveStatus={saveStatus} />
-
-      <div className="flex flex-1 overflow-hidden">
         {!previewMode && (
           <>
-            {/* Left panel */}
-            <aside
-              className="flex flex-col overflow-hidden"
-              style={{
-                width: leftWidth,
-                background: 'var(--panel-bg)',
-                borderRight: '1px solid var(--border)',
-                flexShrink: 0,
-              }}
-            >
-              <LeftPanelTabs activeTab={leftTab} onTabChange={setLeftTab} />
-              <div className="flex-1 overflow-hidden">
-                <ErrorBoundary name="Layers">
-                  {leftTab === 'layers'     && <LayersPanel />}
-                  {leftTab === 'components' && <ComponentsPanel />}
-                  {leftTab === 'cms'        && <CMSPanel />}
-                  {leftTab === 'history'   && <HistoryPanel />}
-                  {leftTab === 'transform' && <TransformPanel />}
-                  {leftTab === 'assets'     && <AssetsPanel />}
-                </ErrorBoundary>
-              </div>
-            </aside>
+            {/* Left rail — 44px icon bar */}
+            <LeftPanelRail activeTab={activeLeftPanel} onTabChange={setActiveLeftPanel} />
 
-            {/* Left resize handle */}
-            <div
-              onPointerDown={handleDividerPointerDown('left')}
-              style={{
-                width: 4, cursor: 'col-resize', flexShrink: 0,
-                background: 'transparent', transition: 'background var(--duration-instant)',
-                zIndex: 20,
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,153,255,0.3)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-            />
+            {/* Secondary left panel — animated 0↔240px (hidden for copilot) */}
+            <AnimatePresence>
+              {activeLeftPanel && activeLeftPanel !== 'copilot' && (
+                <motion.aside
+                  key="secondary-panel"
+                  initial={{ width: 0 }}
+                  animate={{ width: 240 }}
+                  exit={{ width: 0 }}
+                  transition={{ duration: DURATION.base, ease: EASE.standard }}
+                  style={{
+                    overflow: 'hidden',
+                    background: 'var(--panel-bg)',
+                    borderRight: '0.5px solid var(--border)',
+                    flexShrink: 0,
+                  }}
+                >
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: DURATION.fast, delay: 0.04 }}
+                    style={{ width: 240, height: '100%', overflow: 'hidden' }}
+                  >
+                    <ErrorBoundary name="Layers">
+                      {activeLeftPanel === 'layers'     && <LayersPanel />}
+                      {activeLeftPanel === 'components' && <ComponentsPanel />}
+                      {activeLeftPanel === 'cms'        && <CMSPanel />}
+                      {activeLeftPanel === 'assets'     && <AssetsPanel />}
+                      {activeLeftPanel === 'history'    && <HistoryPanel />}
+                      {activeLeftPanel === 'transform'  && <TransformPanel />}
+                    </ErrorBoundary>
+                  </motion.div>
+                </motion.aside>
+              )}
+            </AnimatePresence>
           </>
         )}
 
-        <ErrorBoundary name="Canvas">
-          <Canvas />
-        </ErrorBoundary>
+        <div className="flex flex-1 relative overflow-hidden">
+          <ErrorBoundary name="Canvas">
+            <Canvas />
+          </ErrorBoundary>
+          {!previewMode && <Toolbar saveStatus={saveStatus} />}
+        </div>
+
+        {/* Copilot right panel — between canvas and inspector divider */}
+        <AnimatePresence>
+          {!previewMode && activeLeftPanel === 'copilot' && (
+            <motion.aside
+              key="copilot-right-panel"
+              initial={{ width: 0 }}
+              animate={{ width: COPILOT_WIDTH }}
+              exit={{ width: 0 }}
+              transition={{ duration: DURATION.base, ease: EASE.standard }}
+              style={{
+                overflow: 'hidden',
+                background: 'var(--panel-bg)',
+                borderLeft: '0.5px solid var(--border)',
+                flexShrink: 0,
+              }}
+            >
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: DURATION.fast, delay: 0.04 }}
+                style={{ width: COPILOT_WIDTH, height: '100%', overflow: 'hidden' }}
+              >
+                <ErrorBoundary name="Copilot">
+                  <CopilotPanel />
+                </ErrorBoundary>
+              </motion.div>
+            </motion.aside>
+          )}
+        </AnimatePresence>
 
         {!previewMode && (
           <>
             {/* Right resize handle */}
             <div
-              onPointerDown={handleDividerPointerDown('right')}
+              onPointerDown={handleRightDividerPointerDown}
               style={{
                 width: 4, cursor: 'col-resize', flexShrink: 0,
                 background: 'transparent', transition: 'background var(--duration-instant)',
                 zIndex: 20,
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,153,255,0.3)')}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--accent-border)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             />
 
-            {/* Right panel */}
+            {/* Right panel — 256px inspector */}
             <aside
               className="flex flex-col overflow-hidden"
               style={{
-                width: rightWidth,
+                width: rightPanelWidth,
                 background: 'var(--panel-bg)',
                 borderLeft: '1px solid var(--border)',
                 flexShrink: 0,
@@ -240,7 +269,6 @@ export default function Editor() {
 
       {showPalette && <CommandPalette onClose={() => setShowPalette(false)} />}
       <ToastHost />
-    </div>
     </>
   )
 }

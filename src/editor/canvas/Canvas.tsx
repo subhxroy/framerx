@@ -1,5 +1,7 @@
 import { useRef, useCallback, useEffect, useState } from 'react'
 import { useEditorStore } from '@/store/editorStore'
+import { useUIStore } from '@/store/uiStore'
+import { useCopilotStore } from '@/store/copilotStore'
 import { componentDefinitions } from '@/panels/components/ComponentDefinitions'
 import { ASSET_DND_TYPE } from '@/panels/assets/AssetsPanel'
 import { breakpointWidths } from '@/lib/breakpointUtils'
@@ -8,7 +10,10 @@ import { getAbsolutePos } from '@/lib/coords'
 import ElementRenderer from '@/editor/elements/Element'
 import SelectionManager from '@/editor/selection/SelectionManager'
 import ContextMenu from '@/panels/context/ContextMenu'
-import { ChevronDown } from 'lucide-react'
+import CanvasRulers from './CanvasRulers'
+import { ChevronDown, Grid3X3, Ruler } from 'lucide-react'
+import { useHoverStore } from '@/store/hoverStore'
+import { DELAY } from '@/lib/motionTokens'
 
 const MIN_SCALE = 0.02
 const MAX_SCALE = 64
@@ -66,6 +71,10 @@ export default function Canvas() {
   const addElementTree = useEditorStore((s) => s.addElementTree)
   const activeTool = useEditorStore((s) => s.activeTool)
   const setActiveTool = useEditorStore((s) => s.setActiveTool)
+  const activeBreakpoint = useEditorStore((s) => s.activeBreakpoint)
+  const previewMode = useEditorStore((s) => s.previewMode)
+  const copilotOutput = useCopilotStore((s) => s.generatedOutput)
+  const discardGeneration = useCopilotStore((s) => s.discardGeneration)
 
   const screenToCanvas = useCallback(
     (screenX: number, screenY: number) => {
@@ -91,6 +100,52 @@ export default function Canvas() {
     [canvas]
   )
   void canvasToScreen
+
+  // Bidirectional hover sync (canvas → Layers). Delegated pointer tracking on
+  // the container with hover-intent (DELAY.hoverIntent) so rapid sweeps across
+  // dense elements don't thrash the shared store. Runs only outside preview.
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el || useEditorStore.getState().previewMode) return
+    let timer: number | null = null
+    let pending: string | null = null
+    const commit = () => { timer = null; useHoverStore.getState().setHovered(pending, 'canvas') }
+    const onOver = (e: PointerEvent) => {
+      const node = (e.target as HTMLElement)?.closest?.('[data-element-id]') as HTMLElement | null
+      const id = node?.getAttribute('data-element-id') ?? null
+      if (id === useHoverStore.getState().hoveredId && pending === id) return
+      pending = id
+      if (timer !== null) window.clearTimeout(timer)
+      if (id) timer = window.setTimeout(commit, DELAY.hoverIntent)
+      else useHoverStore.getState().setHovered(null, 'canvas') // leave clears instantly
+    }
+    const onLeave = () => {
+      if (timer !== null) { window.clearTimeout(timer); timer = null }
+      pending = null
+      useHoverStore.getState().setHovered(null, 'canvas')
+    }
+    el.addEventListener('pointermove', onOver)
+    el.addEventListener('pointerleave', onLeave)
+    return () => {
+      if (timer !== null) window.clearTimeout(timer)
+      el.removeEventListener('pointermove', onOver)
+      el.removeEventListener('pointerleave', onLeave)
+    }
+  }, [])
+
+  // Reflect Layers → canvas hover: outline the matching element when a layer
+  // row is hovered. Toggles a class rather than re-rendering the element tree.
+  useEffect(() => {
+    if (useEditorStore.getState().previewMode) return
+    return useHoverStore.subscribe((state) => {
+      const prev = document.querySelector('[data-element-id].layer-hover')
+      if (prev) prev.classList.remove('layer-hover')
+      if (state.hoveredId && state.source === 'layers') {
+        const node = document.querySelector(`[data-element-id="${state.hoveredId}"]`)
+        node?.classList.add('layer-hover')
+      }
+    })
+  }, [])
 
   const schedulePan = useCallback((dx: number, dy: number) => {
     pendingPan.current.x += dx
@@ -215,6 +270,19 @@ export default function Canvas() {
         setActiveTool(current === 'hand' ? 'select' : 'hand')
       }
 
+      // Escape: go up to parent selection (Framer behaviour).
+      if (e.code === 'Escape') {
+        e.preventDefault()
+        const store = useEditorStore.getState()
+        if (store.editingId) { store.setEditingId(null); return }
+        if (store.selectedIds.length === 1) {
+          const parentId = store.elements[store.selectedIds[0]]?.parentId
+          if (parentId) { store.setSelectedIds([parentId]); return }
+        }
+        store.setSelectedIds([])
+        return
+      }
+
       // Shift+1: zoom to fit all
       if (e.code === 'Digit1' && e.shiftKey) {
         e.preventDefault()
@@ -267,12 +335,122 @@ export default function Canvas() {
       }
     }
 
+    // Plain left-click → Framer-style hierarchical selection.
+    // Priority: if clicking inside an already-selected frame's subtree, select
+    // the direct child of that frame at the pointer; otherwise select the
+    // root-level ancestor frame that contains the point.
+    const handleFramerClick = (e: PointerEvent) => {
+      if (e.button !== 0 || e.metaKey || e.ctrlKey) return
+      const store = useEditorStore.getState()
+      if (store.activeTool !== 'select' || store.previewMode) return
+      // Skip if clicking on a Moveable handle or Selecto rubber-band overlay
+      const target = e.target as HTMLElement
+      if (target.closest('.moveable-control-box') || target.closest('[data-selecto-overlay]')) return
+
+      const elements = store.elements
+      const allNodes = Array.from(document.querySelectorAll<HTMLElement>('[data-element-id]'))
+
+      // Collect all elements whose bounding rect contains the pointer.
+      type Hit = { id: string; depth: number }
+      const hits: Hit[] = []
+      for (const node of allNodes) {
+        const id = node.getAttribute('data-element-id')
+        if (!id || !elements[id]) continue
+        const r = node.getBoundingClientRect()
+        if (r.width === 0 && r.height === 0) continue
+        if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) continue
+        let depth = 0
+        let cur: string | null | undefined = elements[id]?.parentId
+        const visited = new Set<string>([id])
+        while (cur && !visited.has(cur)) {
+          visited.add(cur)
+          depth++
+          cur = elements[cur]?.parentId
+        }
+        hits.push({ id, depth })
+      }
+
+      if (hits.length === 0) {
+        // Clicking empty canvas → deselect
+        store.setSelectedIds([])
+        return
+      }
+
+      // Shallowest hit = root frame; deepest = most nested child
+      hits.sort((a, b) => a.depth - b.depth)
+      const shallowest = hits[0]
+
+      const currentSelected = store.selectedIds
+
+      // Helper: get root-level ancestor of an element
+      const getRootAncestor = (id: string): string => {
+        const visited = new Set<string>([id])
+        let cur = id
+        while (elements[cur]?.parentId && elements[elements[cur].parentId!] && !visited.has(elements[cur].parentId!)) {
+          const next = elements[cur].parentId!
+          visited.add(next)
+          cur = next
+        }
+        return cur
+      }
+
+      if (currentSelected.length === 1) {
+        const selId = currentSelected[0]
+        const selEl = elements[selId]
+        if (selEl && (selEl.children?.length ?? 0) > 0) {
+          // Check if the pointer is inside the selected element's bounding rect
+          const selNode = document.querySelector<HTMLElement>(`[data-element-id="${selId}"]`)
+          const selRect = selNode?.getBoundingClientRect()
+          const insideSel = selRect
+            ? e.clientX >= selRect.left && e.clientX <= selRect.right
+              && e.clientY >= selRect.top && e.clientY <= selRect.bottom
+            : false
+
+          if (insideSel) {
+            // Find the shallowest hit that is a direct child of the selected element
+            const directChild = hits.find((h) => elements[h.id]?.parentId === selId)
+            if (directChild && directChild.id !== selId) {
+              store.setSelectedIds([directChild.id])
+              return
+            }
+            // Clicking on the selected element itself (re-click) — keep selection
+            if (hits.some((h) => h.id === selId)) {
+              return
+            }
+          }
+        }
+      }
+
+      // Nothing selected yet: pick the deepest hit that has a parent (i.e. is
+      // inside a frame) so clicking a child element like a navbar selects it
+      // directly instead of selecting the root page frame.
+      if (currentSelected.length === 0) {
+        const nested = [...hits].reverse().find((h) => elements[h.id]?.parentId)
+        if (nested) {
+          store.setSelectedIds([nested.id])
+          return
+        }
+      }
+
+      // Default: select the root-level ancestor frame that contains the click
+      const rootId = getRootAncestor(shallowest.id)
+
+      // If we already have this root selected and there's nothing to drill into
+      // at root level, keep the selection (don't flicker)
+      if (currentSelected.length === 1 && currentSelected[0] === rootId) {
+        return
+      }
+
+      store.setSelectedIds([rootId])
+    }
+
     window.addEventListener('keydown', handleKD)
     window.addEventListener('keyup', handleKU)
     const el = containerRef.current
     if (el) {
       el.addEventListener('wheel', handleWheel, { passive: false })
       el.addEventListener('pointerdown', handleDeepSelect, true)
+      el.addEventListener('pointerdown', handleFramerClick, true)
     }
     return () => {
       window.removeEventListener('keydown', handleKD)
@@ -280,6 +458,7 @@ export default function Canvas() {
       if (el) {
         el.removeEventListener('wheel', handleWheel)
         el.removeEventListener('pointerdown', handleDeepSelect, true)
+        el.removeEventListener('pointerdown', handleFramerClick, true)
       }
     }
   }, [handleWheel, setActiveTool, zoomToFitIds, zoomToScaleAtViewportCenter])
@@ -371,7 +550,7 @@ export default function Canvas() {
         e.preventDefault()
       }
     },
-    [activeTool, screenToCanvas]
+    [activeTool, screenToCanvas, previewMode]
   )
 
   const handlePointerMove = useCallback(
@@ -439,38 +618,64 @@ export default function Canvas() {
     if (tool === 'text') store.setEditingId(id)
   }, [createElementFromTool])
 
-  const activeBreakpoint = useEditorStore((s) => s.activeBreakpoint)
-  const previewMode = useEditorStore((s) => s.previewMode)
   const [isDragOver, setIsDragOver] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; elementId: string } | null>(null)
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     if (previewMode) return
-    const target = e.target as HTMLElement
-    const el = target.closest('[data-element-id]') as HTMLElement | null
-    const id = el?.getAttribute('data-element-id')
-    if (!id) return
+    e.stopPropagation()
     const store = useEditorStore.getState()
-    const element = store.elements[id]
-    if (element?.type === 'text') {
-      e.stopPropagation()
-      store.setSelectedIds([id])
+    const elements = store.elements
+
+    // Collect all hits under the pointer (same as single-click handler)
+    type Hit = { id: string; depth: number }
+    const hits: Hit[] = []
+    const allNodes = Array.from(document.querySelectorAll<HTMLElement>('[data-element-id]'))
+    for (const node of allNodes) {
+      const id = node.getAttribute('data-element-id')
+      if (!id || !elements[id]) continue
+      const r = node.getBoundingClientRect()
+      if (r.width === 0 && r.height === 0) continue
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) continue
+      let depth = 0
+      let cur: string | null | undefined = elements[id]?.parentId
+      const visited = new Set<string>([id])
+      while (cur && !visited.has(cur)) {
+        visited.add(cur)
+        depth++
+        cur = elements[cur]?.parentId
+      }
+      hits.push({ id, depth })
+    }
+    if (hits.length === 0) return
+    hits.sort((a, b) => a.depth - b.depth)
+
+    // If double-clicking anywhere in the hit stack that contains a text element,
+    // enter edit mode on the text element (deepest text hit wins).
+    const textHit = [...hits].reverse().find((h) => elements[h.id]?.type === 'text')
+    if (textHit) {
+      store.setSelectedIds([textHit.id])
       store.pushHistory()
-      store.setEditingId(id)
+      store.setEditingId(textHit.id)
       return
     }
-    // Drill down one level: select the deepest descendant under the pointer that
-    // sits inside the current selection's subtree; fall back to deepest at point.
-    let drilled: string | null = null
-    for (const sid of store.selectedIds) {
-      drilled = hitTestDeepest(e.clientX, e.clientY, store.elements, sid)
-      if (drilled) break
+
+    // Framer double-click: if a frame is selected, select the direct child
+    // under the pointer that belongs to it. Otherwise select the deepest hit.
+    const currentSelected = store.selectedIds
+    if (currentSelected.length === 1) {
+      const selId = currentSelected[0]
+      // Find the direct child of selId that contains the pointer
+      const directChild = hits.find((h) => elements[h.id]?.parentId === selId)
+      if (directChild) {
+        store.setSelectedIds([directChild.id])
+        return
+      }
     }
-    if (!drilled) drilled = hitTestDeepest(e.clientX, e.clientY, store.elements)
-    if (drilled && drilled !== id) {
-      e.stopPropagation()
-      store.setSelectedIds([drilled])
-    }
+
+    // Fallback: select the deepest hit (most nested element)
+    const deepest = hits[hits.length - 1]
+    if (deepest) store.setSelectedIds([deepest.id])
   }, [previewMode])
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
@@ -562,6 +767,40 @@ export default function Canvas() {
   }, [finishDraw])
 
   const [showZoom, setShowZoom] = useState(false)
+  const [containerSize, setContainerSize] = useState({ width: 800, height: 600 })
+
+  // AI Copilot preview overlay
+  const previewRects = (() => {
+    if (!copilotOutput || copilotOutput.mode !== 'generate' || !copilotOutput.elements) return null
+    type PreviewRect = { x: number; y: number; w: number; h: number; name: string; type: string }
+    const rects: PreviewRect[] = []
+    const walk = (nodes: Record<string, unknown>[], ox = 0, oy = 0) => {
+      for (const node of nodes) {
+        const x = ((node.x as number) ?? 0) + ox
+        const y = ((node.y as number) ?? 0) + oy
+        rects.push({ x, y, w: (node.width as number) ?? 0, h: (node.height as number) ?? 0, name: (node.name as string) ?? '', type: (node.type as string) ?? '' })
+        if (Array.isArray(node.children)) walk(node.children, x, y)
+      }
+    }
+    walk(copilotOutput.elements)
+    return rects
+  })()
+  const showGrid = useUIStore(s => s.showGrid)
+  const setShowGrid = useUIStore(s => s.setShowGrid)
+  const showRuler = useUIStore(s => s.showRuler)
+  const setShowRuler = useUIStore(s => s.setShowRuler)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const ro = new ResizeObserver(entries => {
+      const { width, height } = entries[0].contentRect
+      setContainerSize({ width: Math.round(width), height: Math.round(height) })
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   const gridSize = 8
   const dotSpacing = gridSize * canvas.scale
   const gridOpacity = canvas.scale < 0.25 ? Math.max(0, canvas.scale / 0.25) * 0.05 : 0.05
@@ -593,7 +832,7 @@ export default function Canvas() {
       onDrop={handleDrop}
       onContextMenu={handleContextMenu}
     >
-      {!previewMode && (
+      {!previewMode && showGrid && (
         <div
           className="pointer-events-none absolute inset-0"
           style={{
@@ -636,7 +875,7 @@ export default function Canvas() {
               width: drawPreview.w,
               height: drawPreview.h,
               border: `${1 / canvas.scale}px solid var(--accent)`,
-              background: 'rgba(0,153,255,0.08)',
+              background: 'var(--accent-dim)',
               borderRadius: activeTool === 'ellipse' ? '9999px' : 0,
             }}
           >
@@ -648,7 +887,7 @@ export default function Canvas() {
                 transform: `translate(-50%, ${6 / canvas.scale}px) scale(${1 / canvas.scale})`,
                 transformOrigin: 'top center',
                 background: 'var(--accent)',
-                color: '#fff',
+                color: 'var(--text-inverse)',
                 fontSize: 11,
                 fontWeight: 500,
                 padding: '2px 8px',
@@ -661,28 +900,110 @@ export default function Canvas() {
             </div>
           </div>
         )}
+
+        {/* AI Copilot preview overlay */}
+        {previewRects && previewRects.length > 0 && (
+          <div
+            className="pointer-events-none absolute"
+            style={{
+              top: 0, left: 0, right: 0, bottom: 0, zIndex: 9000,
+            }}
+            onClick={(e) => { e.stopPropagation(); discardGeneration() }}
+          >
+            {previewRects.map((r, i) => (
+              <div
+                key={i}
+                className="pointer-events-none absolute"
+                style={{
+                  left: r.x, top: r.y,
+                  width: r.w, height: r.h,
+                  border: `${1 / Math.max(canvas.scale, 0.01)}px dashed var(--accent)`,
+                  background: 'var(--accent-dim)',
+                  opacity: 0.65,
+                }}
+              >
+                <span style={{
+                  position: 'absolute', top: 0, left: 0,
+                  fontSize: 10,
+                  background: 'var(--accent)',
+                  color: 'var(--text-inverse)',
+                  padding: '0 4px', lineHeight: '16px',
+                  borderRadius: `0 0 4px 0`,
+                  whiteSpace: 'nowrap',
+                  transform: `scale(${1 / Math.max(canvas.scale, 0.01)})`,
+                  transformOrigin: 'top left',
+                }}>
+                  {r.name}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {!previewMode && <SelectionManager containerRef={containerRef} />}
 
+      {!previewMode && showRuler && (
+        <CanvasRulers width={containerSize.width} height={containerSize.height} />
+      )}
+
       {!previewMode && (
-        <div style={{ position: 'absolute', bottom: 14, left: 14, zIndex: 50 }}>
+        <div style={{ position: 'absolute', bottom: 12, left: 12, zIndex: 50, display: 'flex', gap: 8 }}>
+          {/* Grid toggle */}
           <button
+            onClick={() => setShowGrid(!showGrid)}
+            title={showGrid ? 'Hide grid' : 'Show grid'}
             style={{
-              display: 'flex', alignItems: 'center', gap: 3,
-              padding: '4px 9px', borderRadius: 6,
-              background: 'rgba(28,28,28,0.9)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 28, height: 28, borderRadius: 6,
+              background: showGrid ? 'var(--surface-2)' : 'var(--panel-bg)',
               backdropFilter: 'blur(8px)',
-              border: '1px solid #2a2a2a',
-              color: '#555', cursor: 'pointer', fontSize: 11,
+              border: '0.5px solid var(--border)',
+              color: showGrid ? 'var(--accent)' : 'var(--text-tertiary)',
+              cursor: 'pointer', fontSize: 11,
               fontFamily: 'var(--font-ui)',
               boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-              transition: 'color 80ms',
+              transition: 'color var(--duration-instant), background var(--duration-instant)',
+            }}
+          >
+            <Grid3X3 size={13} />
+          </button>
+          {/* Ruler toggle */}
+          <button
+            onClick={() => setShowRuler(!showRuler)}
+            title={showRuler ? 'Hide rulers' : 'Show rulers'}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 28, height: 28, borderRadius: 6,
+              background: showRuler ? 'var(--surface-2)' : 'var(--panel-bg)',
+              backdropFilter: 'blur(8px)',
+              border: '0.5px solid var(--border)',
+              color: showRuler ? 'var(--accent)' : 'var(--text-tertiary)',
+              cursor: 'pointer', fontSize: 11,
+              fontFamily: 'var(--font-ui)',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+              transition: 'color var(--duration-instant), background var(--duration-instant)',
+            }}
+          >
+            <Ruler size={13} />
+          </button>
+          <div style={{ position: 'relative' }}>
+          <button
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '4px 8px', borderRadius: 6,
+              background: 'var(--panel-bg)',
+              backdropFilter: 'blur(8px)',
+              border: '0.5px solid var(--border)',
+              color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: 11,
+              fontFamily: 'var(--font-ui)',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+              transition: 'color var(--duration-instant)',
               fontVariantNumeric: 'tabular-nums',
             }}
             onClick={() => setShowZoom(v => !v)}
-            onMouseEnter={e => (e.currentTarget.style.color = '#aaa')}
-            onMouseLeave={e => (e.currentTarget.style.color = '#555')}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}
           >
             {Math.round(canvas.scale * 100)}%
             <ChevronDown size={9} />
@@ -692,8 +1013,8 @@ export default function Canvas() {
               <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={() => setShowZoom(false)} />
               <div style={{
                 position: 'absolute', bottom: 34, left: 0, zIndex: 50,
-                background: '#1c1c1c', border: '1px solid #2a2a2a',
-                borderRadius: 7, padding: 4, minWidth: 100,
+                background: 'var(--panel-bg)', border: '1px solid var(--border)',
+                borderRadius: 8, padding: 4, minWidth: 100,
                 boxShadow: 'var(--shadow-dropdown)',
               }}>
                 {ZOOM_PRESETS.map(pct => (
@@ -702,31 +1023,31 @@ export default function Canvas() {
                     onClick={() => { setCanvas({ scale: pct / 100 }); setShowZoom(false) }}
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      width: '100%', padding: '5px 10px', borderRadius: 5,
+                      width: '100%', padding: '4px 8px', borderRadius: 4,
                       border: 'none', cursor: 'pointer', fontSize: 11,
-                      background: Math.round(canvas.scale * 100) === pct ? '#252525' : 'transparent',
-                      color: Math.round(canvas.scale * 100) === pct ? '#ececec' : '#888',
+                      background: Math.round(canvas.scale * 100) === pct ? 'var(--surface-2)' : 'transparent',
+                      color: Math.round(canvas.scale * 100) === pct ? 'var(--text-primary)' : 'var(--text-secondary)',
                       fontFamily: 'var(--font-ui)',
-                      transition: 'background 60ms',
+                      transition: 'background var(--duration-instant)',
                     }}
-                    onMouseEnter={e => { if (Math.round(canvas.scale * 100) !== pct) e.currentTarget.style.background = '#202020' }}
+                    onMouseEnter={e => { if (Math.round(canvas.scale * 100) !== pct) e.currentTarget.style.background = 'var(--surface-2)' }}
                     onMouseLeave={e => { if (Math.round(canvas.scale * 100) !== pct) e.currentTarget.style.background = 'transparent' }}
                   >
                     {pct}%
-                    {Math.round(canvas.scale * 100) === pct && <span style={{ fontSize: 10, color: '#0091ff' }}>✓</span>}
+                    {Math.round(canvas.scale * 100) === pct && <span style={{ fontSize: 10, color: 'var(--accent)' }}>✓</span>}
                   </button>
                 ))}
-                <div style={{ height: 1, background: '#252525', margin: '4px 0' }} />
+                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                 <button
                   onClick={() => { setCanvas({ x: 0, y: 0, scale: 1 }); setShowZoom(false) }}
                   style={{
                     display: 'block', width: '100%', textAlign: 'left',
-                    padding: '5px 10px', borderRadius: 5, border: 'none',
-                    background: 'transparent', color: '#555',
+                    padding: '4px 8px', borderRadius: 4, border: 'none',
+                    background: 'transparent', color: 'var(--text-tertiary)',
                     cursor: 'pointer', fontSize: 11,
                     fontFamily: 'var(--font-ui)',
                   }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#202020')}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
                   Reset view
@@ -734,6 +1055,7 @@ export default function Canvas() {
               </div>
             </>
           )}
+          </div>
         </div>
       )}
 

@@ -62,27 +62,16 @@ export default function BorderRadiusSection() {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <span
-          style={{
-            fontSize: 'var(--text-xs)',
-            color: 'var(--text-muted)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-            fontWeight: 500,
-          }}
-        >
-          Border Radius
-        </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <button
           onClick={togglePerCorner}
           title={isPerCorner ? 'Use single radius' : 'Set each corner'}
           style={{
-            fontSize: 'var(--text-xs)',
-            color: isPerCorner ? 'var(--accent)' : 'var(--text-secondary)',
+            fontSize: 10,
+            color: isPerCorner ? 'var(--accent)' : 'var(--text-tertiary)',
             background: 'transparent',
             border: 'none',
-            cursor: 'pointer',
+            cursor: 'pointer', fontFamily: 'var(--font-ui)',
           }}
         >
           {isPerCorner ? 'Single' : 'Corners'}

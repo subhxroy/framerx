@@ -22,7 +22,7 @@ export default function ItemsTable({ collection, onEditItem }: Props) {
         </span>
         <button
           className="flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded"
-          style={{ background: 'var(--accent)', color: '#fff', border: 'none', cursor: 'pointer' }}
+          style={{ background: 'var(--accent)', color: 'var(--text-inverse)', border: 'none', cursor: 'pointer' }}
           onClick={() => {
             const defaults: Record<string, unknown> = {}
             for (const f of collection.fields) {

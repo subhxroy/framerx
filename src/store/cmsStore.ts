@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { createContext, useContext } from 'react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { toast } from './toastStore'
 
 export type CMSFieldType =
   | 'text' | 'rich-text' | 'image' | 'number' | 'boolean'
@@ -150,7 +151,7 @@ export const useCMSStore = create<CMSStore>((set, get) => ({
       const { error } = await supabase.from('cms_collections').insert({
         id, project_id: activeProjectId, name, fields: []
       })
-      if (error) set({ error: error.message })
+      if (error) { set({ error: error.message }); toast.error(`Couldn’t sync new collection: ${error.message}`) }
     }
 
     // localStorage persistence
@@ -180,7 +181,7 @@ export const useCMSStore = create<CMSStore>((set, get) => ({
       if (changes.fields !== undefined) payload.fields = changes.fields
       if (Object.keys(payload).length > 0) {
         const { error } = await supabase.from('cms_collections').update(payload).eq('id', id)
-        if (error) set({ error: error.message })
+        if (error) { set({ error: error.message }); toast.error(`Couldn’t sync collection changes: ${error.message}`) }
       }
     }
 
@@ -198,10 +199,11 @@ export const useCMSStore = create<CMSStore>((set, get) => ({
       return { collections: rest, items: itemsRest }
     })
 
-    // DB Update
+    // DB Update — cascade items first
     if (isSupabaseConfigured && supabase) {
+      await supabase.from('cms_items').delete().eq('collection_id', id)
       const { error } = await supabase.from('cms_collections').delete().eq('id', id)
-      if (error) set({ error: error.message })
+      if (error) { set({ error: error.message }); toast.error(`Couldn’t sync collection deletion: ${error.message}`) }
     }
 
     // localStorage persistence
@@ -237,6 +239,21 @@ export const useCMSStore = create<CMSStore>((set, get) => ({
   },
 
   addItem: async (collectionId, values) => {
+    const { collections } = get()
+    const c = collections[collectionId]
+    if (c) {
+      for (const field of c.fields) {
+        if (field.required) {
+          const v = values[field.id]
+          if (v === undefined || v === '' || v === null) {
+            set({ error: `"${field.name}" is required` })
+            toast.error(`"${field.name}" is required`)
+            return ''
+          }
+        }
+      }
+    }
+
     const id = genId()
     set({ error: null })
     
@@ -251,7 +268,7 @@ export const useCMSStore = create<CMSStore>((set, get) => ({
       const { error } = await supabase.from('cms_items').insert({
         id, collection_id: collectionId, values
       })
-      if (error) set({ error: error.message })
+      if (error) { set({ error: error.message }); toast.error(`Couldn’t sync new item: ${error.message}`) }
     }
 
     // localStorage persistence
@@ -262,6 +279,21 @@ export const useCMSStore = create<CMSStore>((set, get) => ({
   },
 
   updateItem: async (collectionId, itemId, values) => {
+    const { collections } = get()
+    const c = collections[collectionId]
+    if (c) {
+      for (const field of c.fields) {
+        if (field.required) {
+          const v = values[field.id]
+          if (v === undefined || v === '' || v === null) {
+            set({ error: `"${field.name}" is required` })
+            toast.error(`"${field.name}" is required`)
+            return
+          }
+        }
+      }
+    }
+
     set({ error: null })
     // Optimistic UI
     set((s) => {
@@ -277,7 +309,7 @@ export const useCMSStore = create<CMSStore>((set, get) => ({
     // DB Update
     if (isSupabaseConfigured && supabase) {
       const { error } = await supabase.from('cms_items').update({ values }).eq('id', itemId)
-      if (error) set({ error: error.message })
+      if (error) { set({ error: error.message }); toast.error(`Couldn’t sync item changes: ${error.message}`) }
     }
 
     // localStorage persistence
@@ -298,7 +330,7 @@ export const useCMSStore = create<CMSStore>((set, get) => ({
     // DB Update
     if (isSupabaseConfigured && supabase) {
       const { error } = await supabase.from('cms_items').delete().eq('id', itemId)
-      if (error) set({ error: error.message })
+      if (error) { set({ error: error.message }); toast.error(`Couldn’t sync item deletion: ${error.message}`) }
     }
 
     // localStorage persistence

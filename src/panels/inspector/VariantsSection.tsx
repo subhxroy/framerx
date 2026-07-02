@@ -48,7 +48,7 @@ function OverrideRow({
   else if (parts.length === 2) baseVal = element?.[parts[0]]?.[parts[1]]
 
   return (
-    <div className="flex items-center gap-1" style={{ marginBottom: 3 }}>
+    <div className="flex items-center gap-1" style={{ marginBottom: 4 }}>
       <input
         type="text"
         style={{
@@ -136,7 +136,7 @@ function OverrideRow({
           cursor: 'pointer',
           fontSize: '12px',
           lineHeight: '1',
-          padding: '0 2px',
+          padding: '0 4px',
           flexShrink: 0,
         }}
         onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
@@ -155,9 +155,7 @@ export default function VariantsSection({ elementId }: Props) {
   const pushHistory = useEditorStore((s) => s.pushHistory)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
 
-  if (!element?.componentId) return null
-
-  const variants = element.variants ?? []
+  const variants = element?.variants ?? []
 
   const toggleExpand = (id: string) =>
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))
@@ -249,6 +247,8 @@ export default function VariantsSection({ elementId }: Props) {
     [variants, updateVariant]
   )
 
+  if (!element?.componentId) return null
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div className="flex items-center justify-between">
@@ -272,7 +272,7 @@ export default function VariantsSection({ elementId }: Props) {
             cursor: 'pointer',
             padding: 0,
             fontWeight: 500,
-            transition: 'color 0.1s',
+            transition: 'color var(--duration-normal)',
           }}
           onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent-hover)')}
           onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--accent)')}
@@ -304,7 +304,7 @@ export default function VariantsSection({ elementId }: Props) {
               <div
                 className="flex items-center justify-between"
                 style={{
-                  padding: '6px 8px',
+                  padding: '8px 8px',
                   cursor: 'pointer',
                   userSelect: 'none',
                 }}
@@ -314,7 +314,7 @@ export default function VariantsSection({ elementId }: Props) {
                   fontSize: '10px',
                   fontWeight: 500,
                   color: 'var(--text-primary)',
-                  transition: 'color 0.1s',
+                  transition: 'color var(--duration-normal)',
                 }}>
                   {isExpanded ? '\u25BE' : '\u25B8'} {variant.name}
                   {overrideKeys.length > 0 && (
@@ -332,9 +332,9 @@ export default function VariantsSection({ elementId }: Props) {
                       cursor: 'pointer',
                       fontSize: '12px',
                       lineHeight: '1',
-                      padding: '1px 2px',
-                      borderRadius: 3,
-                      transition: 'all 0.1s',
+                      padding: '4px 4px',
+                      borderRadius: 4,
+                      transition: 'all var(--duration-normal)',
                       display: 'flex',
                       alignItems: 'center',
                     }}
@@ -357,7 +357,7 @@ export default function VariantsSection({ elementId }: Props) {
                       fontSize: '14px',
                       lineHeight: '1',
                       padding: 0,
-                      transition: 'color 0.1s',
+                      transition: 'color var(--duration-normal)',
                     }}
                     onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
                     onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
@@ -419,14 +419,14 @@ export default function VariantsSection({ elementId }: Props) {
                 <div style={{ padding: '0 8px 6px', borderTop: '1px solid var(--border-subtle)', paddingTop: 6 }}>
                   {/* Quick-add common fields */}
                   {unusedCommon.length > 0 && (
-                    <div style={{ marginBottom: 6 }}>
+                    <div style={{ marginBottom: 8 }}>
                       <div className="flex items-center gap-1" style={{ flexWrap: 'wrap' }}>
                         {unusedCommon.slice(0, 4).map((field) => (
                           <button
                             key={field.path}
                             style={{
                               fontSize: '8px',
-                              padding: '1px 5px',
+                              padding: '4px 4px',
                               background: 'var(--surface-2)',
                               border: '1px solid var(--border)',
                               borderRadius: 'var(--radius-sm)',
@@ -478,7 +478,7 @@ export default function VariantsSection({ elementId }: Props) {
 
                   {/* Override rows */}
                   {overrideKeys.length === 0 && (
-                    <p style={{ margin: '0 0 6px', fontSize: 9, color: 'var(--text-tertiary)' }}>
+                    <p style={{ margin: '0 0 8px', fontSize: 9, color: 'var(--text-tertiary)' }}>
                       No overrides yet. Add a field above or type one below.
                     </p>
                   )}

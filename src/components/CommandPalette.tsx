@@ -131,7 +131,7 @@ export default function CommandPalette({ onClose }: Props) {
   }, [close, filtered, activeIdx])
 
   const categoryLabel = { layer: 'Layers', command: 'Commands', navigate: 'Projects' }
-  const categoryColor = { layer: '#667eea', command: '#0091ff', navigate: '#43e97b' }
+  const categoryColor = { layer: '#667eea', command: 'var(--accent)', navigate: '#43e97b' }
 
   return (
     <div
@@ -145,15 +145,15 @@ export default function CommandPalette({ onClose }: Props) {
     >
       <div
         style={{
-          width: 560, background: '#1a1a1a', border: '1px solid #2a2a2a',
+          width: 560, background: 'var(--surface-2)', border: '1px solid var(--panel-border)',
           borderRadius: 10, overflow: 'hidden',
           boxShadow: '0 24px 64px rgba(0,0,0,0.7)',
         }}
         onKeyDown={handleKeyDown}
       >
         {/* Search input */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderBottom: '1px solid #222' }}>
-          <Search size={15} style={{ color: '#555', flexShrink: 0 }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderBottom: '1px solid var(--border-subtle)' }}>
+          <Search size={15} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
           <input
             ref={inputRef}
             value={query}
@@ -161,19 +161,19 @@ export default function CommandPalette({ onClose }: Props) {
             placeholder="Search layers, commands, pages..."
             style={{
               flex: 1, background: 'none', border: 'none', outline: 'none',
-              color: '#f0f0f0', fontSize: 14, fontFamily: 'inherit',
+              color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit',
             }}
           />
           <kbd style={{
-            fontSize: 10, color: '#444', background: '#252525',
-            border: '1px solid #333', borderRadius: 3, padding: '2px 5px',
+            fontSize: 10, color: 'var(--text-muted)', background: 'var(--surface-2)',
+            border: '1px solid var(--border)', borderRadius: 3, padding: '2px 5px',
           }}>ESC</kbd>
         </div>
 
         {/* Results */}
         <div style={{ maxHeight: 400, overflowY: 'auto' }}>
           {filtered.length === 0 ? (
-            <div style={{ padding: '20px 16px', textAlign: 'center', color: '#555', fontSize: 13 }}>
+            <div style={{ padding: '20px 16px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 13 }}>
               No results for &ldquo;{query}&rdquo;
             </div>
           ) : (
@@ -186,8 +186,8 @@ export default function CommandPalette({ onClose }: Props) {
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10,
                     padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
-                    background: idx === activeIdx ? '#252525' : 'transparent',
-                    transition: 'background 0.05s',
+                    background: idx === activeIdx ? 'var(--surface-hover)' : 'transparent',
+                    transition: 'background var(--duration-instant)',
                   }}
                 >
                   <span style={{
@@ -197,14 +197,14 @@ export default function CommandPalette({ onClose }: Props) {
                     {item.icon}
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: 0, fontSize: 13, color: '#e0e0e0', fontWeight: 500 }}>{item.label}</p>
+                    <p style={{ margin: 0, fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>{item.label}</p>
                     {item.description && (
-                      <p style={{ margin: 0, fontSize: 11, color: '#555', marginTop: 1 }}>{item.description}</p>
+                      <p style={{ margin: 0, fontSize: 11, color: 'var(--text-tertiary)', marginTop: 1 }}>{item.description}</p>
                     )}
                   </div>
                   <span style={{
-                    fontSize: 10, color: '#444', background: '#1f1f1f',
-                    border: '1px solid #2a2a2a', borderRadius: 3, padding: '1px 6px',
+                    fontSize: 10, color: 'var(--text-muted)', background: 'var(--surface-1)',
+                    border: '1px solid var(--panel-border)', borderRadius: 3, padding: '1px 6px',
                     flexShrink: 0,
                   }}>
                     {categoryLabel[item.category]}
@@ -217,12 +217,12 @@ export default function CommandPalette({ onClose }: Props) {
 
         {/* Footer */}
         <div style={{
-          borderTop: '1px solid #1f1f1f', padding: '8px 14px',
+          borderTop: '1px solid var(--surface-1)', padding: '8px 14px',
           display: 'flex', gap: 12,
         }}>
           {[['↑↓', 'Navigate'], ['↵', 'Execute'], ['Esc', 'Close']].map(([key, label]) => (
-            <span key={key} style={{ fontSize: 11, color: '#444', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <kbd style={{ background: '#252525', border: '1px solid #333', borderRadius: 3, padding: '1px 4px', fontSize: 10, color: '#666' }}>{key}</kbd>
+            <span key={key} style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <kbd style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 3, padding: '1px 4px', fontSize: 10, color: 'var(--text-tertiary)' }}>{key}</kbd>
               {label}
             </span>
           ))}

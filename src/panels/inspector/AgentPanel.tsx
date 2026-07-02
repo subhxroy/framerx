@@ -106,22 +106,22 @@ export default function AgentPanel() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {!hasKey && (
         <div style={{
-          padding: 10, margin: 8, borderRadius: 6,
+          padding: 8, margin: 8, borderRadius: 8,
           background: 'rgba(255, 160, 0, 0.08)',
           border: '1px solid rgba(255, 160, 0, 0.2)',
           fontSize: 10, color: 'var(--text-secondary)', lineHeight: 1.5,
         }}>
-          Set <code style={{ color: '#e0e0e0' }}>VITE_OPENROUTER_API_KEY</code> in <code style={{ color: '#e0e0e0' }}>.env</code> to enable AI.
+          Set <code style={{ color: 'var(--text-primary)' }}>VITE_OPENROUTER_API_KEY</code> in <code style={{ color: 'var(--text-primary)' }}>.env</code> to enable AI.
         </div>
       )}
 
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8,
-        padding: '8px 10px', borderBottom: '1px solid var(--border)',
+        padding: '8px 8px', borderBottom: '1px solid var(--border)',
       }}>
         <div style={{
-          width: 24, height: 24, borderRadius: 5,
+          width: 24, height: 24, borderRadius: 4,
           background: 'linear-gradient(135deg, #667eea, #764ba2)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         }}>
@@ -134,10 +134,10 @@ export default function AgentPanel() {
           <button
             onClick={abortAI}
             style={{
-              display: 'flex', alignItems: 'center', gap: 3,
+              display: 'flex', alignItems: 'center', gap: 4,
               background: 'transparent', border: 'none',
-              color: '#f44', cursor: 'pointer', fontSize: 10,
-              padding: '2px 6px', borderRadius: 3,
+              color: 'var(--error)', cursor: 'pointer', fontSize: 10,
+              padding: '4px 8px', borderRadius: 4,
             }}
           >
             <StopCircle size={11} /> Stop
@@ -146,10 +146,10 @@ export default function AgentPanel() {
       </div>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {!elementId && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-            <p style={{ color: '#555', fontSize: 11, textAlign: 'center', lineHeight: 1.6 }}>
+            <p style={{ color: 'var(--text-tertiary)', fontSize: 11, textAlign: 'center', lineHeight: 1.6 }}>
               Select an element to<br />get AI suggestions
             </p>
           </div>
@@ -157,15 +157,15 @@ export default function AgentPanel() {
 
         {messages.length === 0 && elementId && (
           <div style={{
-            padding: 10, background: 'var(--surface-1)',
-            border: '1px solid var(--border)', borderRadius: 6,
+            padding: 8, background: 'var(--surface-1)',
+            border: '1px solid var(--border)', borderRadius: 8,
           }}>
             <p style={{ margin: 0, fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
               Try asking: <br />
-              <span style={{ color: '#888' }}>• "Change the background color to blue"</span><br />
-              <span style={{ color: '#888' }}>• "Make this text bold and larger"</span><br />
-              <span style={{ color: '#888' }}>• "Add padding around this element"</span><br />
-              <span style={{ color: '#888' }}>• "Convert to a button"</span>
+              <span style={{ color: 'var(--text-secondary)' }}>• "Change the background color to blue"</span><br />
+              <span style={{ color: 'var(--text-secondary)' }}>• "Make this text bold and larger"</span><br />
+              <span style={{ color: 'var(--text-secondary)' }}>• "Add padding around this element"</span><br />
+              <span style={{ color: 'var(--text-secondary)' }}>• "Convert to a button"</span>
             </p>
           </div>
         )}
@@ -174,8 +174,8 @@ export default function AgentPanel() {
           <div
             key={i}
             style={{
-              padding: '6px 8px',
-              borderRadius: 6,
+              padding: '8px 8px',
+              borderRadius: 8,
               background: msg.role === 'user'
                 ? 'var(--surface-2)'
                 : msg.role === 'error'
@@ -183,7 +183,7 @@ export default function AgentPanel() {
                   : 'var(--surface-1)',
               border: '1px solid var(--border)',
               fontSize: 10,
-              color: msg.role === 'error' ? '#f66' : 'var(--text-primary)',
+              color: msg.role === 'error' ? 'var(--error)' : 'var(--text-primary)',
               lineHeight: 1.5,
               whiteSpace: 'pre-wrap',
               wordBreak: 'break-word',
@@ -193,7 +193,7 @@ export default function AgentPanel() {
               <span style={{ fontWeight: 600, color: 'var(--accent)', fontSize: 9, display: 'block', marginBottom: 2 }}>You</span>
             )}
             {msg.role === 'assistant' && (
-              <span style={{ fontWeight: 600, color: '#a78bfa', fontSize: 9, display: 'block', marginBottom: 2 }}>AI</span>
+              <span style={{ fontWeight: 600, color: 'var(--accent)', fontSize: 9, display: 'block', marginBottom: 2 }}>AI</span>
             )}
             {msg.text || (i === messages.length - 1 && streaming ? '\u2022\u2022\u2022' : '')}
           </div>
@@ -213,7 +213,7 @@ export default function AgentPanel() {
           style={{
             flex: 1, height: 30, padding: '0 8px',
             background: 'var(--surface-2)', border: '1px solid var(--border)',
-            borderRadius: 5, color: 'var(--text-primary)',
+            borderRadius: 4, color: 'var(--text-primary)',
             fontSize: 11, outline: 'none', fontFamily: 'inherit',
           }}
         />
@@ -227,9 +227,9 @@ export default function AgentPanel() {
               ? 'linear-gradient(135deg, #667eea, #764ba2)'
               : 'var(--surface-2)',
             border: '1px solid var(--border)',
-            borderRadius: 5, cursor: input.trim() && !streaming && elementId ? 'pointer' : 'default',
-            color: input.trim() && !streaming && elementId ? '#fff' : '#555',
-            flexShrink: 0, transition: 'all 0.1s',
+            borderRadius: 4, cursor: input.trim() && !streaming && elementId ? 'pointer' : 'default',
+            color: input.trim() && !streaming && elementId ? 'var(--text-inverse)' : 'var(--text-tertiary)',
+            flexShrink: 0, transition: 'all var(--duration-normal)',
           }}
         >
           <SendHorizonal size={13} />

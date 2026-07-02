@@ -11,9 +11,16 @@ export default function CodePanel() {
   const elementId = selectedIds[0]
   const element = elements[elementId]
 
+  const [codeError, setCodeError] = useState('')
   const code = useMemo(() => {
     if (!element) return ''
-    return exportSingleElementHTML(element, elements)
+    try {
+      setCodeError('')
+      return exportSingleElementHTML(element, elements)
+    } catch (e) {
+      setCodeError('Error generating HTML code')
+      return ''
+    }
   }, [element, elements])
 
   if (!element) {
@@ -23,7 +30,7 @@ export default function CodePanel() {
         alignItems: 'center', justifyContent: 'center',
         padding: 24, textAlign: 'center', gap: 8,
       }}>
-        <p style={{ color: '#4a4a4a', fontSize: 11, lineHeight: 1.6 }}>
+        <p style={{ color: 'var(--text-tertiary)', fontSize: 11, lineHeight: 1.6 }}>
           Select an element to view its HTML/CSS code.
         </p>
       </div>
@@ -41,21 +48,21 @@ export default function CodePanel() {
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px 12px', borderBottom: '1px solid #1e1e1e'
+        padding: '10px 12px', borderBottom: '1px solid var(--border)'
       }}>
-        <span style={{ fontSize: 11, fontWeight: 500, color: '#e0e0e0' }}>
+        <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-primary)' }}>
           HTML & CSS Output
         </span>
         <button
           onClick={handleCopy}
           style={{
-            display: 'flex', alignItems: 'center', gap: 5,
+            display: 'flex', alignItems: 'center', gap: 4,
             padding: '4px 8px', borderRadius: 4,
-            background: copied ? 'rgba(39,201,63,0.1)' : '#252525',
-            border: `1px solid ${copied ? 'rgba(39,201,63,0.3)' : '#333'}`,
-            color: copied ? '#27c93f' : '#ccc',
+            background: copied ? 'rgba(52,199,89,0.1)' : 'var(--surface-2)',
+            border: `1px solid ${copied ? 'rgba(52,199,89,0.3)' : 'var(--border)'}`,
+            color: copied ? 'var(--success)' : 'var(--text-primary)',
             cursor: 'pointer', fontSize: 10,
-            transition: 'all 0.15s',
+            transition: 'all var(--duration-slow)',
           }}
         >
           {copied ? <Check size={12} /> : <Copy size={12} />}
@@ -64,14 +71,18 @@ export default function CodePanel() {
       </div>
 
       {/* Code viewer */}
-      <div style={{ flex: 1, overflow: 'hidden', padding: '12px', background: '#0d0d0d' }}>
-        <pre style={{
-          margin: 0, padding: 0, width: '100%', height: '100%',
-          overflow: 'auto', fontSize: 11, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-          color: '#d4d4d4', lineHeight: 1.5, tabSize: 2,
-        }}>
-          <code>{code}</code>
-        </pre>
+      <div style={{ flex: 1, overflow: 'hidden', padding: '12px', background: 'var(--canvas-bg)' }}>
+        {codeError ? (
+          <p style={{ color: 'var(--error)', fontSize: 11 }}>{codeError}</p>
+        ) : (
+          <pre style={{
+            margin: 0, padding: 0, width: '100%', height: '100%',
+            overflow: 'auto', fontSize: 11, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+            color: 'var(--text-primary)', lineHeight: 1.5, tabSize: 2,
+          }}>
+            <code>{code}</code>
+          </pre>
+        )}
       </div>
     </div>
   )

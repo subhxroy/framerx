@@ -12,7 +12,7 @@ export default function TransformPanel() {
   if (!el || selectedIds.length !== 1) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', padding: 20 }}>
-        <p style={{ color: '#555', fontSize: 11, textAlign: 'center' }}>
+        <p style={{ color: 'var(--text-tertiary)', fontSize: 11, textAlign: 'center' }}>
           Select a single element to transform
         </p>
       </div>
@@ -25,7 +25,7 @@ export default function TransformPanel() {
   }
 
   return (
-    <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
       <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 500 }}>
         Transform
       </span>

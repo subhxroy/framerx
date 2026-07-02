@@ -91,10 +91,17 @@ export default function NumberInput({
     (e: React.PointerEvent<HTMLLabelElement>) => {
       if (!scrubbing) return
       const dx = e.clientX - scrubStartX.current
-      const sens = e.shiftKey ? step * 10 : step
-      const newVal = clamp(scrubStartValue.current + Math.round(dx * sens * 0.5) / step * step)
+      // Per-pixel sensitivity with Figma/Framer-style modifiers:
+      //   default        → `step` units per px
+      //   Shift          → 10× (coarse)
+      //   Cmd/Ctrl       → 0.1× (fine)
+      const mult = e.shiftKey ? 10 : e.metaKey || e.ctrlKey ? 0.1 : 1
+      const raw = scrubStartValue.current + dx * step * mult
+      // Snap fine drags to 0.1 and coarser drags to whole `step` increments.
+      const quantum = mult < 1 ? step / 10 : step
+      const newVal = clamp(Math.round(raw / quantum) * quantum)
       onChange(newVal)
-      setLocal(String(newVal))
+      setLocal(String(Math.round(newVal * 100) / 100))
     },
     [scrubbing, step, onChange, min, max]
   )
@@ -113,12 +120,12 @@ export default function NumberInput({
     <div style={{
       display: 'flex',
       alignItems: 'center',
-      height: 26,
+      height: 28,
       background: 'var(--surface-2)',
       border: `1px solid ${focused ? 'var(--accent)' : 'var(--border)'}`,
       borderRadius: 'var(--radius-sm)',
       overflow: 'hidden',
-      transition: 'border-color 80ms',
+      transition: 'border-color var(--duration-instant)',
     }}>
       <label
         style={{
@@ -128,9 +135,9 @@ export default function NumberInput({
           letterSpacing: '0.04em',
           userSelect: 'none',
           cursor: 'ew-resize',
-          padding: '0 6px',
+          padding: '0 8px',
           flexShrink: 0,
-          transition: 'color 80ms',
+          transition: 'color var(--duration-instant)',
         }}
         onPointerDown={handleLabelPointerDown}
         onPointerMove={handleLabelPointerMove}
@@ -164,7 +171,7 @@ export default function NumberInput({
           fontSize: 11,
           fontFamily: 'var(--font-mono)',
           textAlign: 'right',
-          padding: suffix ? '0 4px 0 0' : '0 6px 0 0',
+          padding: suffix ? '0 4px 0 0' : '0 8px 0 0',
           minWidth: 0,
         }}
       />
@@ -172,7 +179,7 @@ export default function NumberInput({
         <span style={{
           fontSize: 10,
           color: 'var(--text-muted)',
-          padding: '0 6px 0 0',
+          padding: '0 8px 0 0',
           flexShrink: 0,
         }}>
           {suffix}

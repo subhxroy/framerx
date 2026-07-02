@@ -68,7 +68,7 @@ export default function InteractionSection({ elementId }: Props) {
               cursor: 'pointer',
               padding: 0,
               fontWeight: 500,
-              transition: 'color 0.1s',
+              transition: 'color var(--duration-normal)',
             }}
             onMouseEnter={e => e.currentTarget.style.color = 'var(--accent-hover)'}
             onMouseLeave={e => e.currentTarget.style.color = 'var(--accent)'}
@@ -87,11 +87,11 @@ export default function InteractionSection({ elementId }: Props) {
               background: 'transparent', 
               border: 'none', 
               cursor: 'pointer',
-              padding: '5px 8px',
+              padding: '4px 8px',
               fontSize: '11px',
               textAlign: 'left',
               borderRadius: 'var(--radius-sm)',
-              transition: 'background 0.1s, color 0.1s',
+              transition: 'background var(--duration-normal), color var(--duration-normal)',
             }}
             onMouseEnter={e => {
               e.currentTarget.style.background = 'var(--surface-hover)'
@@ -111,11 +111,11 @@ export default function InteractionSection({ elementId }: Props) {
               background: 'transparent', 
               border: 'none', 
               cursor: 'pointer',
-              padding: '5px 8px',
+              padding: '4px 8px',
               fontSize: '11px',
               textAlign: 'left',
               borderRadius: 'var(--radius-sm)',
-              transition: 'background 0.1s, color 0.1s',
+              transition: 'background var(--duration-normal), color var(--duration-normal)',
             }}
             onMouseEnter={e => {
               e.currentTarget.style.background = 'var(--surface-hover)'
@@ -152,7 +152,7 @@ export default function InteractionSection({ elementId }: Props) {
                   fontSize: '14px',
                   lineHeight: '1',
                   padding: 0,
-                  transition: 'color 0.1s',
+                  transition: 'color var(--duration-normal)',
                 }}
                 onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
                 onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
@@ -172,7 +172,7 @@ export default function InteractionSection({ elementId }: Props) {
                   border: '1px solid var(--border)', 
                   borderRadius: 'var(--radius-sm)',
                   fontSize: '11px',
-                  padding: '0 6px',
+                  padding: '0 8px',
                   outline: 'none',
                   fontFamily: 'inherit',
                 }}
@@ -194,7 +194,7 @@ export default function InteractionSection({ elementId }: Props) {
                   border: '1px solid var(--border)', 
                   borderRadius: 'var(--radius-sm)',
                   fontSize: '11px',
-                  padding: '0 6px',
+                  padding: '0 8px',
                   outline: 'none',
                   fontFamily: 'inherit',
                 }}

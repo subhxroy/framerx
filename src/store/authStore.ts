@@ -16,22 +16,26 @@ interface AuthStore {
   user: AuthUser | null
   loading: boolean
   error: string | null
+  signUpPending: boolean
 
   setUser: (user: AuthUser | null) => void
   setLoading: (v: boolean) => void
   setError: (e: string | null) => void
   clearError: () => void
+  setSignUpPending: (v: boolean) => void
 }
 
 export const useAuthStore = create<AuthStore>((set) => ({
   user: null,
   loading: true,
   error: null,
+  signUpPending: false,
 
   setUser: (user) => set({ user, loading: false }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error, loading: false }),
   clearError: () => set({ error: null }),
+  setSignUpPending: (signUpPending) => set({ signUpPending }),
 }))
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -113,12 +117,16 @@ export async function signUp(email: string, password: string): Promise<boolean> 
   useAuthStore.getState().clearError()
 
   if (isSupabaseConfigured && supabase) {
-    const { error } = await supabase.auth.signUp({ email, password })
+    const { error, data } = await supabase.auth.signUp({ email, password })
     if (error) {
       useAuthStore.getState().setError(error.message)
       return false
     }
-    // signUp triggers onAuthStateChange when confirmed
+    if (!data.session) {
+      useAuthStore.getState().setSignUpPending(true)
+      useAuthStore.getState().setLoading(false)
+      return false
+    }
     return true
   }
 

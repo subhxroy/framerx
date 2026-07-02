@@ -14,7 +14,8 @@ export default function useClipboard() {
       if (
         tag === 'INPUT' ||
         tag === 'TEXTAREA' ||
-        tag === 'SELECT'
+        tag === 'SELECT' ||
+        document.activeElement?.getAttribute('contenteditable') === 'true'
       ) return
 
       const state = useEditorStore.getState()
@@ -58,10 +59,15 @@ export default function useClipboard() {
             subtree.push(node)
             stack.push(...(node.children || []))
           }
-          const detached = subtree.map((p) =>
-            p.id === root.id ? { ...p, parentId: null } : p
+          const isContainer =
+            state.selectedIds.length === 1 &&
+            (state.elements[state.selectedIds[0]]?.type === 'frame' ||
+             state.elements[state.selectedIds[0]]?.type === 'stack')
+          const targetParentId = isContainer ? state.selectedIds[0] : null
+          const subtreeWithParent = subtree.map((p) =>
+            p.id === root.id ? { ...p, parentId: targetParentId } : p
           )
-          const newRootId = state.addElementTree(detached, root.id!)
+          const newRootId = state.addElementTree(subtreeWithParent, root.id!)
           const rootEl = useEditorStore.getState().elements[newRootId]
           if (rootEl) {
             useEditorStore.getState().updateElement(newRootId, {
@@ -82,8 +88,14 @@ export default function useClipboard() {
         const items: EditorElement[] = []
         state.pushHistory()
         for (const id of [...state.selectedIds]) {
-          const el = state.elements[id]
-          if (el) items.push(JSON.parse(JSON.stringify(el)))
+          const stack = [id]
+          while (stack.length) {
+            const cur = stack.pop()!
+            const node = state.elements[cur]
+            if (!node) continue
+            items.push(JSON.parse(JSON.stringify(node)))
+            stack.push(...node.children)
+          }
           state.deleteElement(id)
         }
         setClipboard(items)

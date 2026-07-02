@@ -7,13 +7,14 @@ import {
   Component,
 } from 'lucide-react'
 import type { Element } from '@/store/editorStore'
+import { useHoverStore } from '@/store/hoverStore'
 
 const TYPE_ICON: Record<string, { icon: React.ReactNode; color: string }> = {
-  frame:   { icon: <Square size={11} strokeWidth={1.5} />,     color: '#666' },
-  text:    { icon: <Type size={11} strokeWidth={1.5} />,       color: '#666' },
-  image:   { icon: <ImageIcon size={11} strokeWidth={1.5} />,  color: '#666' },
-  shape:   { icon: <Circle size={11} strokeWidth={1.5} />,     color: '#666' },
-  stack:   { icon: <Square size={11} strokeWidth={1.5} />,     color: '#666' },
+  frame:   { icon: <Square size={11} strokeWidth={1.5} />,     color: 'var(--text-secondary)' },
+  text:    { icon: <Type size={11} strokeWidth={1.5} />,       color: 'var(--text-secondary)' },
+  image:   { icon: <ImageIcon size={11} strokeWidth={1.5} />,  color: 'var(--text-secondary)' },
+  shape:   { icon: <Circle size={11} strokeWidth={1.5} />,     color: 'var(--text-secondary)' },
+  stack:   { icon: <Square size={11} strokeWidth={1.5} />,     color: 'var(--text-secondary)' },
 }
 
 interface Props {
@@ -45,6 +46,9 @@ export default function LayerRow({
   const [name, setName]       = useState(element.name)
   const [hovered, setHovered] = useState(false)
   const inputRef              = useRef<HTMLInputElement>(null)
+  const setHoveredEl          = useHoverStore((s) => s.setHovered)
+  // Highlighted because the pointer is over the matching element on the canvas.
+  const hoveredFromCanvas     = useHoverStore((s) => s.hoveredId === element.id && s.source === 'canvas')
 
   const {
     attributes, listeners, setNodeRef,
@@ -73,31 +77,32 @@ export default function LayerRow({
   }, [name, element.name, element.id, onRename])
 
   const isInstance = element.isInstance
-  const typeInfo = TYPE_ICON[element.type] ?? { icon: <Square size={11} strokeWidth={1.5} />, color: '#666' }
+  const typeInfo = TYPE_ICON[element.type] ?? { icon: <Square size={11} strokeWidth={1.5} />, color: 'var(--text-secondary)' }
 
   return (
     <div
       ref={setNodeRef}
       {...attributes}
       {...listeners}
+      data-layer-row={element.id}
       onClick={(e) => onSelect(element.id, e.shiftKey)}
       onDoubleClick={handleDoubleClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => { setHovered(true); setHoveredEl(element.id, 'layers') }}
+      onMouseLeave={() => { setHovered(false); setHoveredEl(null, 'layers') }}
       onMouseDown={(e) => e.stopPropagation()}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.3 : element.visible ? 1 : 0.35,
-        height: 26,
+        height: 28,
         paddingLeft: 10 + depth * 14,
         paddingRight: 4,
         display: 'flex',
         alignItems: 'center',
-        gap: 2,
+        gap: 4,
         background: isSelected
-          ? 'rgba(0, 153, 255, 0.12)'
-          : hovered ? 'rgba(255,255,255,0.03)' : 'transparent',
+          ? 'var(--accent-bg)'
+          : hovered || hoveredFromCanvas ? 'rgba(255,255,255,0.03)' : 'transparent',
         cursor: 'default',
         userSelect: 'none',
         borderRadius: 0,
@@ -110,12 +115,12 @@ export default function LayerRow({
             onClick={(e) => { e.stopPropagation(); onToggleCollapse(element.id) }}
             style={{
               background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-              color: '#444', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 14, height: 14, borderRadius: 2,
-              transition: 'color 60ms',
+              color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 16, height: 16, borderRadius: 2,
+              transition: 'color var(--duration-instant)',
             }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#aaa')}
-            onMouseLeave={e => (e.currentTarget.style.color = '#444')}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
           >
             {isCollapsed
               ? <ChevronRight size={9} strokeWidth={2} />
@@ -123,16 +128,16 @@ export default function LayerRow({
             }
           </button>
         ) : (
-          <div style={{ width: 14 }} />
+          <div style={{ width: 16 }} />
         )}
       </div>
 
       {/* Type icon */}
       <span style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        width: 14, height: 14, flexShrink: 0,
-        color: isSelected ? 'var(--accent)' : isInstance ? '#ff9500' : typeInfo.color,
-        transition: 'color 60ms',
+        width: 16, height: 16, flexShrink: 0,
+        color: isSelected ? 'var(--accent)' : isInstance ? 'var(--accent)' : typeInfo.color,
+        transition: 'color var(--duration-instant)',
       }}>
         {isInstance ? <Component size={11} strokeWidth={1.5} /> : typeInfo.icon}
       </span>
@@ -152,12 +157,12 @@ export default function LayerRow({
           onClick={(e) => e.stopPropagation()}
           style={{
             flex: 1, height: 20, minWidth: 0,
-            background: '#1a1a1a',
+            background: 'var(--surface-2)',
             border: '1px solid var(--accent)',
-            borderRadius: 3,
-            color: '#e8e8e8',
+            borderRadius: 4,
+            color: 'var(--text-primary)',
             fontSize: 11,
-            padding: '0 5px',
+            padding: '0 4px',
             outline: 'none',
             fontFamily: 'var(--font-ui)',
           }}
@@ -167,7 +172,7 @@ export default function LayerRow({
           flex: 1,
           fontSize: 11,
           fontWeight: isSelected ? 500 : 400,
-          color: isSelected ? '#e8e8e8' : '#999',
+          color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
@@ -177,24 +182,42 @@ export default function LayerRow({
           {element.name}
         </span>
       )}
+      {isInstance && (
+        <span style={{
+          fontSize: 8, color: 'var(--accent)', background: 'var(--accent-dim)',
+          padding: '0 4px', borderRadius: 4, lineHeight: 1.2, flexShrink: 0,
+          fontWeight: 500, letterSpacing: '0.02em',
+        }}>
+          Instance
+        </span>
+      )}
+      {element.componentId && !isInstance && (
+        <span style={{
+          fontSize: 8, color: 'var(--accent)', background: 'var(--accent-dim)',
+          padding: '0 4px', borderRadius: 4, lineHeight: 1.2, flexShrink: 0,
+          fontWeight: 500, letterSpacing: '0.02em',
+        }}>
+          Component
+        </span>
+      )}
 
       {/* Actions — visible on hover */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 0,
         opacity: hovered || element.locked || !element.visible ? 1 : 0,
-        transition: 'opacity 80ms',
+        transition: 'opacity var(--duration-instant)',
         flexShrink: 0,
       }}>
         <button
           onClick={(e) => { e.stopPropagation(); onToggleVisibility(element.id) }}
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
-            padding: 2, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: element.visible ? '#555' : '#333',
-            borderRadius: 3, transition: 'color 60ms',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.color = '#aaa')}
-          onMouseLeave={e => (e.currentTarget.style.color = element.visible ? '#555' : '#333')}
+            padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: element.visible ? 'var(--text-tertiary)' : 'var(--text-disabled)',
+              borderRadius: 4, transition: 'color var(--duration-instant)',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
+            onMouseLeave={e => (e.currentTarget.style.color = element.visible ? 'var(--text-tertiary)' : 'var(--text-disabled)')}
           title={element.visible ? 'Hide' : 'Show'}
         >
           {element.visible ? <Eye size={10} strokeWidth={1.5} /> : <EyeOff size={10} strokeWidth={1.5} />}
@@ -204,9 +227,9 @@ export default function LayerRow({
           <button
             onClick={(e) => { e.stopPropagation(); onToggleLock(element.id) }}
             style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              padding: 2, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'var(--accent)', borderRadius: 3,
+            background: 'none', border: 'none', cursor: 'pointer',
+            padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--accent)', borderRadius: 4,
             }}
             title="Unlock"
           >

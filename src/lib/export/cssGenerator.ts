@@ -180,16 +180,17 @@ function buildAnimationCSS(id: string, interactions?: Interaction[]): string {
 export function generateCSS(
   elements: Record<string, Element>,
   rootIds: string[],
-  includeAnimations = true
+  includeAnimations = true,
+  skipVisibilityCheck = false
 ): GeneratedCSS {
   const base: string[] = []
   const tabletOverrides: string[] = []
   const mobileOverrides: string[] = []
   const animParts: string[] = []
 
-  function walk(id: string, parentFlow = false) {
+  function walk(id: string, parentFlow = false, skipVisibility = false) {
     const el = elements[id]
-    if (!el || !el.visible) return
+    if (!el || (!skipVisibility && !el.visible)) return
 
     const cls = elClass(id)
     const baseS = buildBaseStyles(el, parentFlow)
@@ -212,11 +213,11 @@ export function generateCSS(
 
     const childFlow = !!el.autoLayout?.enabled
     for (const cid of el.children || []) {
-      walk(cid, childFlow)
+      walk(cid, childFlow, skipVisibility)
     }
   }
 
-  for (const rid of rootIds) walk(rid)
+  for (const rid of rootIds) walk(rid, false, skipVisibilityCheck)
 
   return {
     base: base.join('\n\n'),

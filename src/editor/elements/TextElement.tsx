@@ -7,7 +7,8 @@ interface Props {
 }
 
 export default function TextElement({ element }: Props) {
-  const t = element.text!
+  if (!element.text) return null
+  const t = element.text
   const editingId = useEditorStore((s) => s.editingId)
   const setEditingId = useEditorStore((s) => s.setEditingId)
   const updateElement = useEditorStore((s) => s.updateElement)
@@ -69,6 +70,7 @@ export default function TextElement({ element }: Props) {
         }}
         style={{
           ...base,
+          overflow: 'visible',
           outline: '1px solid var(--accent)',
           cursor: 'text',
           pointerEvents: 'auto',

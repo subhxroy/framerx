@@ -6,20 +6,7 @@ import { useInstanceUpdate } from './useInstanceUpdate'
 import { getBPValue } from '@/lib/breakpointUtils'
 import RespNumberInput from './RespNumberInput'
 import NumberInput from './NumberInput'
-
-const SectionHeader = () => (
-  <span
-    style={{
-      fontSize: 'var(--text-xs)',
-      color: 'var(--text-muted)',
-      textTransform: 'uppercase',
-      letterSpacing: '0.08em',
-      fontWeight: 500,
-    }}
-  >
-    Layout
-  </span>
-)
+import { flashElements } from '@/lib/flashElements'
 
 const SIZE_LABEL: Record<SizeMode, string> = { fixed: 'Fixed', fill: 'Fill', hug: 'Hug' }
 
@@ -146,6 +133,8 @@ export default function LayoutSection() {
       const value = field === 'opacity' ? Math.max(0, Math.min(1, rawValue / 100)) : rawValue
       pushHistory()
       for (const e of multi) applyChanges(e, { [field]: value } as any)
+      // Confirm the batch landed with a brief pulse on each affected element.
+      flashElements(multi.map((e) => e.id))
     },
     [multi, pushHistory, applyChanges]
   )
@@ -165,7 +154,6 @@ export default function LayoutSection() {
     )
     return (
       <div className="flex flex-col gap-3">
-        <SectionHeader />
         <div className="grid grid-cols-2 gap-2">
           {num('x', 'X')}
           {num('y', 'Y')}
@@ -239,7 +227,6 @@ export default function LayoutSection() {
 
   return (
     <div className="flex flex-col gap-3">
-      <SectionHeader />
       <div className="grid grid-cols-2 gap-2">
         {renderInput('x', 'X', bpX ?? el.x)}
         {renderInput('y', 'Y', bpY ?? el.y)}

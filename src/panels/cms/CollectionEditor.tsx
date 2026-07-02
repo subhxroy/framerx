@@ -83,7 +83,7 @@ export default function CollectionEditor({ collection, onBack }: Props) {
         </select>
         <button
           className="text-xs px-1.5 py-1 rounded"
-          style={{ background: 'var(--accent)', color: '#fff', border: 'none', cursor: 'pointer' }}
+          style={{ background: 'var(--accent)', color: 'var(--text-inverse)', border: 'none', cursor: 'pointer' }}
           onClick={() => {
             if (newFieldName.trim()) {
               addField(collection.id, { name: newFieldName.trim(), type: newFieldType, required: false })

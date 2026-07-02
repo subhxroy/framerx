@@ -6,61 +6,63 @@
      FRAMER EXACT PALETTE — matched to real app
   ───────────────────────────────────────── */
 
-  /* Canvas — Framer uses very dark near-black */
-  --canvas-bg: #0d0d0d;
+  /* Canvas */
+  --canvas-bg: #1a1a1a;
 
   /* App Chrome */
-  --app-bg: #0d0d0d;
-  --panel-bg: #141414;
-  --panel-border: #1e1e1e;
-  --toolbar-bg: #0d0d0d;
+  --app-bg: #111111;
+  --panel-bg: #1c1c1c;
+  --panel-border: #2a2a2a;
+  --toolbar-bg: #161616;
   --toolbar-height: 40px;
   --breakpoint-bar-height: 32px;
 
   /* Sidebar */
-  --left-panel-width: 220px;
-  --right-panel-width: 240px;
+  --left-rail-width: 44px;
+  --left-panel-width: 240px;
+  --right-panel-width: 256px;
 
-  /* Surfaces — Framer's precise 5-level hierarchy */
-  --surface-0: #0d0d0d;
-  --surface-1: #141414;
-  --surface-2: #1a1a1a;
-  --surface-3: #222222;
-  --surface-4: #2a2a2a;
-  --surface-hover: #1e1e1e;
+  /* Surfaces — 5-level hierarchy */
+  --surface-0: #111111;
+  --surface-1: #1f1f1f;
+  --surface-2: #252525;
+  --surface-3: #303030;
+  --surface-4: #383838;
+  --surface-hover: #303030;
   --surface-active: #252525;
   --surface-selected: rgba(0, 145, 255, 0.08);
 
-  /* Text — Framer's exact grey ramps */
-  --text-primary: #e8e8e8;
-  --text-secondary: #808080;
+  /* Text */
+  --text-primary: #f0f0f0;
+  --text-secondary: #8a8a8a;
   --text-tertiary: #555555;
-  --text-muted: #383838;
-  --text-disabled: #252525;
-  --text-inverse: #0d0d0d;
+  --text-muted: #555555;
+  --text-disabled: #303030;
+  --text-inverse: #111111;
 
-  /* Accent — Framer's signature blue */
-  --accent: #0099ff;
-  --accent-hover: #0088e6;
-  --accent-active: #0077cc;
-  --accent-dim: rgba(0, 153, 255, 0.10);
-  --accent-border: rgba(0, 153, 255, 0.30);
+  /* Accent */
+  --accent: #0091ff;
+  --accent-hover: #0082e6;
+  --accent-active: #0073b3;
+  --accent-bg: rgba(0, 145, 255, 0.12);
+  --accent-dim: rgba(0, 145, 255, 0.10);
+  --accent-border: rgba(0, 145, 255, 0.30);
 
   /* Selection */
-  --selection: #0099ff;
+  --selection: #0091ff;
   --selection-handle: #ffffff;
-  --selection-border: #0099ff;
+  --selection-border: #0091ff;
 
   /* Borders */
-  --border: #1e1e1e;
-  --border-strong: #2a2a2a;
-  --border-subtle: #171717;
+  --border: #2a2a2a;
+  --border-strong: #383838;
+  --border-subtle: #1a1a1a;
 
   /* Semantic */
   --error: #ff3b30;
   --success: #34c759;
   --warning: #ff9500;
-  --info: #0099ff;
+  --info: #0091ff;
 
   /* Shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
@@ -104,12 +106,19 @@
   --row-height: 28px;
   --row-indent: 14px;
 
-  /* Transitions */
-  --ease-ui: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --duration-fast: 80ms;
-  --duration-normal: 120ms;
-  --duration-slow: 200ms;
+  /* Transitions — CSS mirror of src/lib/motionTokens.ts (keep in sync) */
+  --ease-ui: cubic-bezier(0.16, 1, 0.3, 1);        /* EASE.standard */
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);   /* EASE.pop */
+  --ease-enter: cubic-bezier(0, 0, 0.2, 1);        /* EASE.enter — decelerate in */
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);         /* EASE.exit — accelerate out */
+  --duration-instant: 80ms;   /* DURATION.instant — micro-feedback + exits */
+  --duration-fast: 80ms;      /* legacy alias (hover/small); == instant */
+  --duration-normal: 120ms;   /* DURATION.fast */
+  --duration-slow: 200ms;     /* DURATION.base */
+  --duration-modal: 300ms;    /* DURATION.slow — larger surfaces */
+
+  /* Interaction thresholds (px) — THRESHOLD.* in motionTokens.ts */
+  --hit-resize-handle: 8px;   /* THRESHOLD.resizeHandleHitArea */
 }
 
 /* ─────────────────────────────────────────
@@ -145,6 +154,23 @@ input, textarea, select {
 }
 
 /* ─────────────────────────────────────────
+   UNIFIED FOCUS RING — one treatment for every form control in the app.
+   Most inspector inputs are inline-styled with their own border + outline:none,
+   so we ring via box-shadow (which those inline styles don't set) to guarantee
+   an identical accent focus across numeric fields, text inputs, selects and the
+   color hex/RGB fields — inconsistent focus rings are a top subconscious "off"
+   tell. transition uses the shared tokens. */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+  transition: box-shadow var(--duration-normal) var(--ease-ui),
+              border-color var(--duration-normal) var(--ease-ui);
+}
+
+/* ─────────────────────────────────────────
    SCROLLBARS — Framer style (near-invisible)
 ───────────────────────────────────────── */
 ::-webkit-scrollbar {
@@ -169,19 +195,19 @@ input, textarea, select {
    MOVEABLE (selection handles) — Framer style
 ───────────────────────────────────────── */
 .moveable-control-box {
-  --moveable-color: #0099ff;
+  --moveable-color: #0091ff;
 }
 
 /* Selection outline */
 .moveable-control-box .moveable-line {
-  background: #0099ff !important;
+  background: #0091ff !important;
   height: 1px !important;
 }
 
 /* Resize handles — white squares with blue border */
 .moveable-control-box .moveable-control {
   background: #ffffff !important;
-  border: 1.5px solid #0099ff !important;
+  border: 1.5px solid #0091ff !important;
   width: 8px !important;
   height: 8px !important;
   margin-top: -4px !important;
@@ -191,9 +217,57 @@ input, textarea, select {
 }
 
 .moveable-control-box .moveable-control:hover {
-  background: #0099ff !important;
+  background: #0091ff !important;
   border-color: #ffffff !important;
   transform: scale(1.15);
+}
+
+/* Enlarged invisible hit area (THRESHOLD.resizeHandleHitArea = 8px) so the
+   handle is easy to grab without making the visible square bigger. The pseudo
+   is part of the host control for hit-testing, so Moveable's drag still fires. */
+.moveable-control-box .moveable-control::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
+/* Directional resize cursors — all 8 handles (edges are the commonly-forgotten
+   ones). Correct for unrotated elements (the overwhelming common case). */
+.moveable-control-box .moveable-control.moveable-nw,
+.moveable-control-box .moveable-control.moveable-se { cursor: nwse-resize !important; }
+.moveable-control-box .moveable-control.moveable-ne,
+.moveable-control-box .moveable-control.moveable-sw { cursor: nesw-resize !important; }
+.moveable-control-box .moveable-control.moveable-n,
+.moveable-control-box .moveable-control.moveable-s { cursor: ns-resize !important; }
+.moveable-control-box .moveable-control.moveable-w,
+.moveable-control-box .moveable-control.moveable-e { cursor: ew-resize !important; }
+
+/* Rotation handle — a grab cursor, deliberately DISTINCT from the resize
+   cursors so users know they're in rotate mode before clicking. */
+.moveable-control-box .moveable-rotation .moveable-rotation-control { cursor: grab !important; }
+.moveable-control-box .moveable-rotation .moveable-rotation-control:active { cursor: grabbing !important; }
+
+/* The draggable body of a selection shows 'grab' (open hand) on hover — the
+   'grabbing' closed hand is forced on <body> during the actual drag by
+   SelectionManager, since the pointer outruns the element on fast drags. */
+.moveable-control-box .moveable-area { cursor: grab; }
+
+/* Selection GLIDE — when selection moves from one element to another the box
+   slides to its new spot rather than teleporting (one of the most distinctive
+   "feels expensive" details). Only enabled in a short window right after a
+   selection change (body.mv-gliding, toggled by SelectionManager) so it never
+   lags during drag, resize, or canvas pan/zoom. */
+body.mv-gliding .moveable-control-box {
+  transition: transform var(--duration-normal) var(--ease-ui),
+              width var(--duration-normal) var(--ease-ui),
+              height var(--duration-normal) var(--ease-ui);
+}
+
+/* Handles fade in when a selection first appears (fresh Moveable mount). */
+.moveable-control-box { animation: mv-appear var(--duration-normal) var(--ease-ui); }
+@keyframes mv-appear {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* Snap / alignment guides — Framer magenta */
@@ -216,25 +290,68 @@ input, textarea, select {
 /* ─────────────────────────────────────────
    CANVAS ELEMENT HOVER — Framer style
 ───────────────────────────────────────── */
+/* Hover-intent, pure-CSS: the outline waits DELAY.hoverIntent (60ms) before
+   appearing (transition-delay on the resting state), then clears instantly on
+   leave (0ms delay on :hover). This is what stops outline strobing when the
+   mouse sweeps a dense canvas — no per-element JS/timers needed. The hovered
+   outline is deliberately quieter (30% accent, 1px) than the 2px solid
+   selection outline, so selected always reads louder than hovered. */
 [data-element-id] {
-  transition: outline-color 60ms;
+  outline: 1px solid transparent;
+  outline-offset: 0;
+  /* Leaving hover: clear instantly (destination = this base state). */
+  transition: outline-color 0ms;
 }
 
 [data-element-id]:hover {
-  outline: 1px solid rgba(0, 153, 255, 0.3);
+  outline-color: rgba(0, 145, 255, 0.3);
+  /* Entering hover: wait 60ms (destination = :hover) → true hover-intent. */
+  transition: outline-color var(--duration-fast) var(--ease-ui) 60ms;
+}
+
+/* Never show the hover outline on the already-selected element (its louder
+   selection outline owns that state). */
+[data-element-id].selecto-selected:hover {
+  outline-color: transparent;
+}
+
+/* Instance badge — visible on element hover or selection */
+[data-element-id]:hover [data-instance-badge],
+[data-element-id].selecto-selected [data-instance-badge] {
+  opacity: 1;
+}
+
+/* Layers → canvas hover reflection. Same quiet weight as pointer hover; the
+   class is toggled imperatively by Canvas when a layer row is hovered. */
+[data-element-id].layer-hover {
+  outline: 1px solid rgba(0, 145, 255, 0.3);
   outline-offset: 0;
+}
+[data-element-id].layer-hover.selecto-selected {
+  outline-color: transparent;
+}
+
+/* Batch-edit confirmation flash — a quick accent pulse on each element a
+   multi-select edit touched, so a "Mixed"-field apply visibly lands. */
+[data-element-id].mv-flash {
+  animation: mv-flash-pulse 260ms var(--ease-ui);
+}
+@keyframes mv-flash-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(0, 145, 255, 0.0); }
+  35%  { box-shadow: 0 0 0 2px rgba(0, 145, 255, 0.55); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 145, 255, 0.0); }
 }
 
 /* ─────────────────────────────────────────
    SELECTO (marquee selection)
 ───────────────────────────────────────── */
 .selecto-selection {
-  background: rgba(0, 153, 255, 0.08) !important;
-  border: 1px solid rgba(0, 153, 255, 0.40) !important;
+  background: rgba(0, 145, 255, 0.08) !important;
+  border: 1px solid rgba(0, 145, 255, 0.40) !important;
 }
 
 .selecto-selected {
-  outline: 2px solid #0099ff;
+  outline: 2px solid #0091ff;
   outline-offset: 1px;
 }
 
@@ -270,7 +387,7 @@ input, textarea, select {
 
 /* Glass surface */
 .glass {
-  background: rgba(13, 13, 13, 0.90);
+  background: rgba(17, 17, 17, 0.90);
   backdrop-filter: blur(20px) saturate(1.8);
   -webkit-backdrop-filter: blur(20px) saturate(1.8);
 }
@@ -315,6 +432,20 @@ input, textarea, select {
 }
 
 /* ─────────────────────────────────────────
+   GLOBAL PRESS MICRO-FEEDBACK — every button dips to 0.97 the instant it's
+   pressed (DURATION.instant), giving a tactile "the click registered" cue
+   BEFORE the real work resolves. One rule, zero exceptions — the point of a
+   shared interaction system. Opt out with data-no-press (drag handles, canvas
+   controls where a transform would fight positioning).
+───────────────────────────────────────── */
+button:not(:disabled):not([data-no-press]) {
+  transition: transform var(--duration-instant) var(--ease-ui);
+}
+button:not(:disabled):not([data-no-press]):active {
+  transform: scale(0.97);
+}
+
+/* ─────────────────────────────────────────
    CANVAS DOT-GRID PATTERN — Framer style
 ───────────────────────────────────────── */
 .canvas-dot-grid {
@@ -329,24 +460,24 @@ input, textarea, select {
 .framer-tooltip {
   position: absolute;
   z-index: 500;
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
-  border-radius: 6px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
   padding: 4px 8px;
   white-space: nowrap;
   font-size: 11px;
-  color: #e0e0e0;
+  color: var(--text-primary);
   pointer-events: none;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
 .framer-tooltip .shortcut {
   display: inline-block;
-  background: #2a2a2a;
+  background: var(--surface-3);
   border-radius: 3px;
   padding: 1px 5px;
   font-size: 10px;
-  color: #666;
+  color: var(--text-secondary);
   font-family: var(--font-mono);
   margin-left: 6px;
 }
@@ -373,7 +504,7 @@ input, textarea, select {
 }
 
 .layer-row.selected:hover {
-  background: rgba(0, 153, 255, 0.14);
+  background: rgba(0, 145, 255, 0.14);
 }
 
 /* ─────────────────────────────────────────

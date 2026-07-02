@@ -3,6 +3,7 @@ import { useEditorStore } from '@/store/editorStore'
 import { useInstanceUpdate } from './useInstanceUpdate'
 import NumberInput from './NumberInput'
 import ColorPicker from './ColorPicker'
+import SegmentedControl from './SegmentedControl'
 
 // Popular Google Fonts for the picker
 const GOOGLE_FONTS = [
@@ -23,7 +24,18 @@ function loadGoogleFont(family: string) {
   document.head.appendChild(link)
 }
 
-const TEXT_TRANSFORMS = ['none', 'uppercase', 'lowercase', 'capitalize'] as const
+const TEXT_TRANSFORM_OPTIONS = [
+  { value: 'none', label: 'Ag' },
+  { value: 'uppercase', label: 'AG' },
+  { value: 'lowercase', label: 'ag' },
+  { value: 'capitalize', label: 'Ag.' },
+]
+
+const ALIGN_OPTIONS = [
+  { value: 'left', label: '≡' },
+  { value: 'center', label: '⊟' },
+  { value: 'right', label: '≡' },
+]
 
 export default function TypographySection() {
   const selectedIds = useEditorStore((s) => s.selectedIds)
@@ -70,12 +82,6 @@ export default function TypographySection() {
 
   return (
     <div className="flex flex-col gap-2">
-      <span style={{
-        fontSize: 10, color: 'var(--text-muted)',
-        textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 500,
-      }}>
-        Typography
-      </span>
 
       {/* Font family */}
       <div style={{ position: 'relative' }}>
@@ -97,7 +103,7 @@ export default function TypographySection() {
             <div style={{ position: 'fixed', inset: 0, zIndex: 299 }} onClick={() => { setShowFontMenu(false); setFontQuery('') }} />
             <div style={{
               position: 'absolute', top: 32, left: 0, right: 0, zIndex: 300,
-              background: '#1a1a1a', border: '1px solid #2a2a2a',
+              background: 'var(--surface-2)', border: '1px solid var(--panel-border)',
               borderRadius: 6, boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
               overflow: 'hidden',
             }}>
@@ -107,29 +113,32 @@ export default function TypographySection() {
                 onChange={e => setFontQuery(e.target.value)}
                 placeholder="Search fonts…"
                 style={{
-                  width: '100%', height: 30, background: '#111', border: 'none',
-                  borderBottom: '1px solid #2a2a2a', outline: 'none',
-                  color: '#f0f0f0', fontSize: 12, padding: '0 10px', fontFamily: 'inherit',
+                  width: '100%', height: 30, background: 'var(--surface-0)', border: 'none',
+                  borderBottom: '1px solid var(--panel-border)', outline: 'none',
+                  color: 'var(--text-primary)', fontSize: 12, padding: '0 8px', fontFamily: 'inherit',
                 }}
               />
               <div style={{ maxHeight: 200, overflowY: 'auto' }}>
-                {filteredFonts.map(font => (
-                  <button
-                    key={font}
-                    onClick={() => handleFontSelect(font)}
-                    style={{
-                      display: 'block', width: '100%', textAlign: 'left',
-                      padding: '6px 10px', border: 'none', cursor: 'pointer',
-                      background: font === currentFont ? '#252525' : 'transparent',
-                      color: font === currentFont ? '#0091ff' : '#c0c0c0',
-                      fontSize: 12, fontFamily: font,
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = '#1f1f1f')}
-                    onMouseLeave={e => (e.currentTarget.style.background = font === currentFont ? '#252525' : 'transparent')}
-                  >
-                    {font}
-                  </button>
-                ))}
+                {filteredFonts.map(font => {
+                  loadGoogleFont(font)
+                  return (
+                    <button
+                      key={font}
+                      onClick={() => handleFontSelect(font)}
+                      style={{
+                        display: 'block', width: '100%', textAlign: 'left',
+                        padding: '8px 8px', border: 'none', cursor: 'pointer',
+                        background: font === currentFont ? 'var(--surface-hover)' : 'transparent',
+                        color: font === currentFont ? 'var(--accent)' : 'var(--text-primary)',
+                        fontSize: 12, fontFamily: font,
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-1)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = font === currentFont ? 'var(--surface-hover)' : 'transparent')}
+                    >
+                      {font}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </>
@@ -179,49 +188,21 @@ export default function TypographySection() {
             cursor: 'pointer', flexShrink: 0,
           }}
         />
-        <div className="flex gap-1">
-          {(['left', 'center', 'right'] as const).map((align) => (
-            <button
-              key={align}
-              onClick={() => handleTextChange('textAlign', align)}
-              style={{
-                width: 28, height: 28, borderRadius: 'var(--radius-sm)',
-                background: t.textAlign === align ? 'var(--accent-bg)' : 'transparent',
-                border: t.textAlign === align ? '1px solid var(--accent-border)' : '1px solid var(--border)',
-                color: t.textAlign === align ? 'var(--accent)' : 'var(--text-secondary)',
-                cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-              title={`Align ${align}`}
-            >
-              {align === 'left' ? '≡' : align === 'center' ? '⊟' : '≡'}
-            </button>
-          ))}
+        <div style={{ flex: 1 }}>
+          <SegmentedControl
+            options={ALIGN_OPTIONS}
+            value={t.textAlign || 'left'}
+            onChange={(v) => handleTextChange('textAlign', v)}
+          />
         </div>
       </div>
 
       {/* Text transform */}
-      <div>
-        <label style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 4 }}>
-          Transform
-        </label>
-        <div style={{ display: 'flex', gap: 2 }}>
-          {TEXT_TRANSFORMS.map(t_ => (
-            <button
-              key={t_}
-              onClick={() => handleTextChange('textTransform', t_)}
-              title={t_}
-              style={{
-                flex: 1, height: 26, borderRadius: 4, border: 'none', cursor: 'pointer', fontSize: 9,
-                background: textTransform === t_ ? '#252525' : 'transparent',
-                color: textTransform === t_ ? '#0091ff' : '#666',
-                fontWeight: 500,
-              }}
-            >
-              {t_ === 'none' ? 'Ag' : t_ === 'uppercase' ? 'AG' : t_ === 'lowercase' ? 'ag' : 'Ag.'}
-            </button>
-          ))}
-        </div>
-      </div>
+      <SegmentedControl
+        options={TEXT_TRANSFORM_OPTIONS}
+        value={textTransform}
+        onChange={(v) => handleTextChange('textTransform', v)}
+      />
 
       {showColorPicker && swatchRef.current && (
         <ColorPicker

@@ -4,7 +4,7 @@ import type { Element } from "@/store/editorStore";
 import {
   Copy, ClipboardPaste, Trash2, CopyPlus,
   ArrowUp, ArrowDown, BringToFront, SendToBack,
-  Group, Ungroup, Palette,
+  Group, Ungroup, Palette, Unlink, ExternalLink,
 } from "lucide-react";
 
 import { setClipboard, getClipboard } from "@/lib/clipboard";
@@ -206,7 +206,31 @@ export default function ContextMenu({ x, y, elementId, onClose }: Props) {
           },
         } as MenuItem]
       : []),
-    { separator: true },
+    ...(target?.isInstance
+      ? [
+          {
+            label: "Detach Instance",
+            icon: <Unlink size={12} />,
+            action: () => {
+              pushHistory();
+              useEditorStore.getState().detachInstance(elementId);
+              onClose();
+            },
+          } as MenuItem,
+          {
+            label: "Go to Master",
+            icon: <ExternalLink size={12} />,
+            action: () => {
+              const masterId = elements[elementId]?.masterId;
+              if (masterId) useEditorStore.getState().setSelectedIds([masterId]);
+              onClose();
+            },
+          } as MenuItem,
+        ]
+      : []),
+    ...((canCreateComponent || target?.isInstance)
+      ? [{ separator: true } as MenuItem]
+      : []),
     {
       label: "Copy Styles",
       icon: <Palette size={12} />,
@@ -252,33 +276,33 @@ export default function ContextMenu({ x, y, elementId, onClose }: Props) {
         left: menuX,
         top: menuY,
         minWidth: 200,
-        background: "#1c1c1c",
-        border: "1px solid #2a2a2a",
+        background: "var(--panel-bg)",
+        border: "1px solid var(--panel-border)",
         boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
       }}
     >
       {menuItems.map((item, i) => {
         if ("separator" in item) {
-          return <div key={i} style={{ height: 1, background: "#2a2a2a", margin: "4px 0" }} />;
+          return <div key={i} style={{ height: 1, background: "var(--panel-border)", margin: "4px 0" }} />;
         }
         return (
           <button
             key={i}
             className="flex items-center gap-2 w-full text-xs px-3 py-1.5 text-left"
             style={{
-              color: item.disabled ? "#555" : "#ccc",
+              color: item.disabled ? "var(--text-tertiary)" : "var(--text-primary)",
               background: "transparent",
               border: "none",
               cursor: item.disabled ? "default" : "pointer",
             }}
-            onMouseEnter={(e) => { if (!item.disabled) (e.currentTarget as HTMLElement).style.background = "#2a2a2a"; }}
+            onMouseEnter={(e) => { if (!item.disabled) (e.currentTarget as HTMLElement).style.background = "var(--surface-hover)"; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
             onClick={item.disabled ? undefined : item.action}
           >
             {item.icon}
             <span className="flex-1">{item.label}</span>
             {item.shortcut && (
-              <span style={{ color: "#555", fontSize: 11 }}>{item.shortcut}</span>
+              <span style={{ color: "var(--text-tertiary)", fontSize: 11 }}>{item.shortcut}</span>
             )}
           </button>
         );
