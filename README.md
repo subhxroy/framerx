@@ -233,7 +233,7 @@ All animations execute in Preview mode using the Motion library.
 | **TypeScript 6** | Type safety |
 | **Vite 8** | Build tool and dev server |
 | **Tailwind CSS 4** | Utility-first styling |
-| **Zustand 5** | Lightweight state management (5 stores) |
+| **Zustand 5** | Lightweight state management (10 stores) |
 | **React Router v7** | Client-side routing |
 | **@dnd-kit** | Drag and drop (layers panel) |
 | **react-moveable** | Element resize/rotate/transform on canvas |
@@ -247,6 +247,7 @@ All animations execute in Preview mode using the Motion library.
 | Service | Purpose |
 |---------|---------|
 | **Supabase** | PostgreSQL, Auth, Storage (optional — localStorage fallback) |
+| **Supabase Edge Functions** | Deno-based serverless functions for AI Copilot and Reset Email sending |
 
 ### Tooling
 
@@ -274,25 +275,29 @@ framer/
 ├── README.md
 ├── CONTRIBUTING.md
 ├── brain.md                  # Full project documentation
-├── framer-clone-build-spec.md
-├── framer-clone-feature-spec.md
-├── REPO_AUDIT.md
 ├── public/
 │   ├── favicon.svg
 │   ├── icons.svg
 │   ├── robots.txt
 │   └── sitemap.xml
-├── dist/                     # Build output
+├── dist/                     # Build output (ignored)
+├── supabase/                 # Supabase configuration & Edge functions
+│   ├── config.toml           # Supabase configuration
+│   ├── functions/            # Edge functions
+│   │   ├── ai-design/        # AI Copilot assistant
+│   │   └── send-reset-email/ # Password reset email generator
+│   └── smtp-relay/           # SMTP local relay server
 └── src/
     ├── main.tsx              # React entry point
     ├── index.css             # Global styles + CSS variables + Tailwind
     ├── app/
     │   ├── App.tsx           # RouterProvider
-    │   └── routes.tsx        # 3 routes: /auth, /, /editor/:projectId
+    │   └── routes.tsx        # 4 routes: /auth, /reset-password, /, /editor/:projectId
     ├── pages/
     │   ├── Auth.tsx          # Sign in/up/reset with animated gallery
     │   ├── Dashboard.tsx     # Project grid + CRUD
-    │   └── Editor.tsx        # Main editor layout
+    │   ├── Editor.tsx        # Main editor layout
+    │   └── ResetPassword.tsx # Set new password recovery page
     ├── editor/
     │   ├── canvas/
     │   │   └── Canvas.tsx    # Infinite canvas, pan/zoom, draw, DnD
@@ -309,10 +314,10 @@ framer/
     │       └── AlignmentBar.tsx
     ├── panels/
     │   ├── toolbar/Toolbar.tsx
-    │   ├── layers/ (LayersPanel, LayerRow, LeftPanelTabs)
-    │   ├── inspector/ (18 files: Layout, AutoLayout, Typography, Fill, Border, BorderRadius, Shadow, Blur, Image, Animation, Interaction, CMSBinding, CodePanel, ColorPicker, NumberInput, RespNumberInput, InspectorPanel, useInstanceUpdate)
-    │   ├── components/ (ComponentsPanel, ComponentDefinitions)
-    │   ├── cms/ (CMSPanel, CollectionEditor, ItemsTable, ItemEditor)
+    │   ├── layers/           # LayersPanel, LayerRow, LeftPanelTabs, LeftPanelRail
+    │   ├── inspector/        # Layout, AutoLayout, Typography, Fill, Border, BorderRadius, etc. (18 files)
+    │   ├── components/       # ComponentsPanel, ComponentDefinitions
+    │   ├── cms/              # CMSPanel, CollectionEditor, ItemsTable, ItemEditor
     │   ├── assets/AssetsPanel.tsx
     │   ├── context/ContextMenu.tsx
     │   └── publish/PublishModal.tsx
@@ -346,7 +351,12 @@ framer/
         ├── projectStore.ts    # Project CRUD, save/load
         ├── authStore.ts       # Auth state, signIn/signUp/signOut
         ├── cmsStore.ts        # CMS collections, fields, items
-        └── assetsStore.ts     # Image assets
+        ├── assetsStore.ts     # Image assets
+        ├── uiStore.ts         # Panel widths, active tabs, layout state
+        ├── hoverStore.ts      # Canvas <-> Layers hover sync
+        ├── toastStore.ts      # Toast notification queue
+        ├── copilotStore.ts    # AI Copilot chat messages & streaming state
+        └── overlayStore.ts    # Overlay/Popover active states
 ```
 
 ---

@@ -1,4 +1,5 @@
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
+import { Upload } from 'lucide-react'
 import { useEditorStore } from '@/store/editorStore'
 import { useInstanceUpdate } from './useInstanceUpdate'
 
@@ -27,8 +28,35 @@ export default function ImageSection() {
     [el, pushHistory, applyChanges]
   )
 
+  if (selectedIds.length > 1) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', color: 'var(--text-tertiary)', fontSize: 10 }}>
+        Editing {selectedIds.length} layers
+      </div>
+    )
+  }
+
   if (!el || el.type !== 'image') return null
   const img = el.image
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const handleUpload = useCallback(() => {
+    fileRef.current?.click()
+  }, [])
+
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      if (!file) return
+      const reader = new FileReader()
+      reader.onload = () => {
+        setImage({ src: reader.result as string })
+      }
+      reader.readAsDataURL(file)
+      e.target.value = ''
+    },
+    [setImage]
+  )
 
   return (
     <div className="flex flex-col gap-2">
@@ -44,21 +72,73 @@ export default function ImageSection() {
         Image
       </span>
 
-      <input
-        value={img?.src ?? ''}
-        onChange={(e) => setImage({ src: e.target.value })}
-        placeholder="Image URL"
-        style={{
-          height: 28,
-          background: 'var(--surface-2)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-sm)',
-          color: 'var(--text-primary)',
-          fontSize: 'var(--text-base)',
-          padding: '0 8px',
-          outline: 'none',
-        }}
-      />
+      <div className="flex gap-1">
+        <input
+          value={img?.src ?? ''}
+          onChange={(e) => setImage({ src: e.target.value })}
+          placeholder="Image URL"
+          style={{
+            flex: 1,
+            height: 28,
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-sm)',
+            color: 'var(--text-primary)',
+            fontSize: 'var(--text-base)',
+            padding: '0 8px',
+            outline: 'none',
+          }}
+        />
+        <button
+          onClick={handleUpload}
+          title="Upload image"
+          style={{
+            height: 28,
+            width: 28,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-sm)',
+            color: 'var(--text-secondary)',
+            cursor: 'pointer',
+            flexShrink: 0,
+          }}
+        >
+          <Upload size={14} />
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          style={{ display: 'none' }}
+        />
+      </div>
+
+      {img?.src && (
+        <div
+          style={{
+            width: '100%',
+            height: 80,
+            borderRadius: 'var(--radius-sm)',
+            overflow: 'hidden',
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+          }}
+        >
+          <img
+            src={img.src}
+            alt=""
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+            }}
+          />
+        </div>
+      )}
 
       <div className="flex flex-col gap-1">
         <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>Fit</span>

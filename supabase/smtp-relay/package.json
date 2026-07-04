@@ -1,0 +1,12 @@
+{
+  "name": "smtp-relay",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "resend": "^4.0.0",
+    "smtp-server": "^3.13.0"
+  }
+}

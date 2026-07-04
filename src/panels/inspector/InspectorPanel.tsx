@@ -1,6 +1,6 @@
 import { useEditorStore } from '@/store/editorStore'
 import { useUIStore } from '@/store/uiStore'
-import { RotateCcw } from 'lucide-react'
+import { RotateCcw, Square, Type, Image as ImageIcon, Circle, Component, Sparkles, Code2 } from 'lucide-react'
 import ScrollArea from '@/components/ScrollArea'
 import InspectorSection from './InspectorSection'
 import LayoutSection from './LayoutSection'
@@ -18,9 +18,16 @@ import CMSBindingSection from './CMSBindingSection'
 import VariantsSection from './VariantsSection'
 import BlurSection from './BlurSection'
 import CodePanel from './CodePanel'
-import { Code2, Sparkles } from 'lucide-react'
 import AgentPanel from './AgentPanel'
 import type { InspectorTab } from '@/store/uiStore'
+
+const TYPE_ICON: Record<string, React.ReactNode> = {
+  frame:   <Square size={12} strokeWidth={1.6} />,
+  text:    <Type size={12} strokeWidth={1.6} />,
+  image:   <ImageIcon size={12} strokeWidth={1.6} />,
+  shape:   <Circle size={12} strokeWidth={1.6} />,
+  stack:   <Square size={12} strokeWidth={1.6} />,
+}
 
 export default function InspectorPanel() {
   const activeTab = useUIStore(s => s.rightTab)
@@ -116,21 +123,33 @@ export default function InspectorPanel() {
                   display: 'flex', alignItems: 'center', gap: 8,
                   padding: '8px 12px',
                   borderBottom: '1px solid var(--border)',
+                  minHeight: 36,
                 }}>
                   <span style={{
-                    fontSize: 9, fontWeight: 600, letterSpacing: '0.06em',
-                    textTransform: 'uppercase', color: 'var(--accent)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: 20, height: 20, borderRadius: 4, flexShrink: 0,
                     background: 'var(--accent-dim)',
-                    padding: '4px 8px', borderRadius: 4,
+                    color: 'var(--accent)',
                   }}>
-                    {element.type}
+                    {element.isInstance
+                      ? <Component size={12} strokeWidth={1.6} />
+                      : TYPE_ICON[element.type] ?? <Square size={12} strokeWidth={1.6} />
+                    }
                   </span>
                   <span style={{
-                  fontSize: 11, color: 'var(--text-secondary)',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    fontSize: 11, fontWeight: 500,
+                    color: 'var(--text-primary)',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     flex: 1,
                   }}>
                     {element.name}
+                  </span>
+                  <span style={{
+                    fontSize: 9, fontWeight: 600, letterSpacing: '0.06em',
+                    textTransform: 'uppercase', color: 'var(--text-tertiary)',
+                    flexShrink: 0,
+                  }}>
+                    {element.type}
                   </span>
                   {element.isInstance && masterName && (
                     <button
@@ -140,15 +159,15 @@ export default function InspectorPanel() {
                       title="Go to master component"
                       style={{
                         fontSize: 9, color: 'var(--accent)', flexShrink: 0,
-                        background: 'var(--accent-bg)',
-                        padding: '4px 8px', borderRadius: 4,
+                        padding: '2px 6px', borderRadius: 4,
                         display: 'flex', alignItems: 'center', gap: 4,
                         border: 'none', cursor: 'pointer',
+                        background: 'transparent',
                       }}
                       onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-bg)' }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent-bg)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                     >
-                      Instance of {masterName}
+                      Instance
                     </button>
                   )}
                   {selectedIds.length > 1 && (

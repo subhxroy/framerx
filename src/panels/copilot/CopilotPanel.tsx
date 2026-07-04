@@ -343,7 +343,7 @@ export default function CopilotPanel() {
             transition={{ duration: DURATION.fast }}
             style={{
               background: 'var(--error)',
-              color: '#fff',
+              color: 'var(--text-primary)',
               fontSize: 11,
               padding: '4px 12px',
               flexShrink: 0,

@@ -1,4 +1,5 @@
 import { useRef, useCallback, useEffect, useState } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
 import { useEditorStore } from '@/store/editorStore'
 import { useUIStore } from '@/store/uiStore'
 import { useCopilotStore } from '@/store/copilotStore'
@@ -11,9 +12,10 @@ import ElementRenderer from '@/editor/elements/Element'
 import SelectionManager from '@/editor/selection/SelectionManager'
 import ContextMenu from '@/panels/context/ContextMenu'
 import CanvasRulers from './CanvasRulers'
-import { ChevronDown, Grid3X3, Ruler } from 'lucide-react'
+import { ChevronDown, Grid3X3, Ruler, Component } from 'lucide-react'
 import { useHoverStore } from '@/store/hoverStore'
-import { DELAY } from '@/lib/motionTokens'
+import { useOverlayStore } from '@/store/overlayStore'
+import { DELAY, DURATION, EASE } from '@/lib/motionTokens'
 
 const MIN_SCALE = 0.02
 const MAX_SCALE = 64
@@ -29,6 +31,26 @@ function getNextPresetScale(currentScale: number, direction: 1 | -1) {
     ? ZOOM_PRESETS.find((preset) => preset > pct + 0.5) ?? ZOOM_PRESETS[ZOOM_PRESETS.length - 1]
     : [...ZOOM_PRESETS].reverse().find((preset) => preset < pct - 0.5) ?? ZOOM_PRESETS[0]
   return nextPct / 100
+}
+
+function animateZoom(
+  from: { x: number; y: number; scale: number },
+  to: { x: number; y: number; scale: number },
+  setCanvas: (s: Partial<{ x: number; y: number; scale: number }>) => void,
+  duration = 200
+) {
+  const start = performance.now()
+  function tick(now: number) {
+    const t = Math.min(1, (now - start) / duration)
+    const ease = 1 - Math.pow(1 - t, 3)
+    setCanvas({
+      x: from.x + (to.x - from.x) * ease,
+      y: from.y + (to.y - from.y) * ease,
+      scale: from.scale + (to.scale - from.scale) * ease,
+    })
+    if (t < 1) requestAnimationFrame(tick)
+  }
+  requestAnimationFrame(tick)
 }
 
 function getAbsoluteRect(id: string, elements: ReturnType<typeof useEditorStore.getState>['elements']) {
@@ -73,6 +95,9 @@ export default function Canvas() {
   const setActiveTool = useEditorStore((s) => s.setActiveTool)
   const activeBreakpoint = useEditorStore((s) => s.activeBreakpoint)
   const previewMode = useEditorStore((s) => s.previewMode)
+  const editingComponentId = useEditorStore((s) => s.editingComponentId)
+  const elements = useEditorStore((s) => s.elements)
+  const openOverlayIds = useOverlayStore((s) => s.openOverlays)
   const copilotOutput = useCopilotStore((s) => s.generatedOutput)
   const discardGeneration = useCopilotStore((s) => s.discardGeneration)
 
@@ -167,37 +192,47 @@ export default function Canvas() {
     }
   }, [])
 
-  const zoomToScaleAtPoint = useCallback((scale: number, clientX: number, clientY: number) => {
-    const rect = containerRef.current?.getBoundingClientRect()
-    if (!rect) return
-    const c = useEditorStore.getState().canvas
-    const newScale = clampScale(scale)
-    const mx = clientX - rect.left
-    const my = clientY - rect.top
-    const sx = (mx - c.x) / c.scale
-    const sy = (my - c.y) / c.scale
-    setCanvas({
-      scale: newScale,
-      x: mx - sx * newScale,
-      y: my - sy * newScale,
-    })
-  }, [setCanvas])
+  const zoomToScaleAtPoint = useCallback(
+    (newScale: number, point: { x: number; y: number }) => {
+      const clamped = clampScale(newScale)
+      const toX = point.x - (point.x - canvas.x) * (clamped / canvas.scale)
+      const toY = point.y - (point.y - canvas.y) * (clamped / canvas.scale)
+      animateZoom(
+        { x: canvas.x, y: canvas.y, scale: canvas.scale },
+        { x: toX, y: toY, scale: clamped },
+        setCanvas,
+        200
+      )
+    },
+    [canvas.x, canvas.y, canvas.scale, setCanvas]
+  )
 
-  const zoomToScaleAtViewportCenter = useCallback((scale: number) => {
-    const rect = containerRef.current?.getBoundingClientRect()
-    if (!rect) return
-    zoomToScaleAtPoint(scale, rect.left + rect.width / 2, rect.top + rect.height / 2)
-  }, [zoomToScaleAtPoint])
+  const zoomToScaleAtViewportCenter = useCallback(
+    (newScale: number) => {
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const cx = rect.left + rect.width / 2
+      const cy = rect.top + rect.height / 2
+      zoomToScaleAtPoint(newScale, { x: cx, y: cy })
+    },
+    [zoomToScaleAtPoint, containerRef]
+  )
 
   const zoomToFitIds = useCallback((ids: string[]) => {
     const rect = containerRef.current?.getBoundingClientRect()
     if (!rect) return
+    const c = useEditorStore.getState().canvas
     const elements = useEditorStore.getState().elements
     const boxes = ids
       .map((id) => getAbsoluteRect(id, elements))
       .filter((box): box is NonNullable<typeof box> => !!box)
     if (boxes.length === 0) {
-      setCanvas({ x: 0, y: 0, scale: 1 })
+      animateZoom(
+        { x: c.x, y: c.y, scale: c.scale },
+        { x: 0, y: 0, scale: 1 },
+        setCanvas,
+        200
+      )
       return
     }
 
@@ -214,11 +249,12 @@ export default function Canvas() {
       2
     ))
 
-    setCanvas({
-      scale,
-      x: rect.width / 2 - (minX + contentW / 2) * scale,
-      y: rect.height / 2 - (minY + contentH / 2) * scale,
-    })
+    animateZoom(
+      { x: c.x, y: c.y, scale: c.scale },
+      { x: rect.width / 2 - (minX + contentW / 2) * scale, y: rect.height / 2 - (minY + contentH / 2) * scale, scale },
+      setCanvas,
+      200
+    )
   }, [setCanvas])
 
   const handleWheel = useCallback(
@@ -234,7 +270,7 @@ export default function Canvas() {
       // Ctrl/Cmd + scroll (or trackpad pinch) = zoom centered on cursor
       if (e.ctrlKey || e.metaKey) {
         const factor = e.deltaY < 0 ? 1.08 : 0.925
-        zoomToScaleAtPoint(c.scale * factor, e.clientX, e.clientY)
+        zoomToScaleAtPoint(c.scale * factor, { x: e.clientX, y: e.clientY })
         return
       }
 
@@ -258,13 +294,13 @@ export default function Canvas() {
         document.activeElement?.getAttribute('contenteditable') === 'true'
       if (typing) return
       if (e.code === 'Space') isSpaceDown.current = true
-      if (e.code === 'KeyV') setActiveTool('select')
-      if (e.code === 'KeyF') setActiveTool('frame')
-      if (e.code === 'KeyT') setActiveTool('text')
-      if (e.code === 'KeyI') setActiveTool('image')
-      if (e.code === 'KeyR') setActiveTool('rect')
-      if (e.code === 'KeyO') setActiveTool('ellipse')
-      if (e.code === 'KeyH') {
+      if (e.code === 'KeyV' && !e.metaKey && !e.ctrlKey) setActiveTool('select')
+      if (e.code === 'KeyF' && !e.metaKey && !e.ctrlKey) setActiveTool('frame')
+      if (e.code === 'KeyT' && !e.metaKey && !e.ctrlKey) setActiveTool('text')
+      if (e.code === 'KeyI' && !e.metaKey && !e.ctrlKey) setActiveTool('image')
+      if (e.code === 'KeyR' && !e.metaKey && !e.ctrlKey) setActiveTool('rect')
+      if (e.code === 'KeyO' && !e.metaKey && !e.ctrlKey) setActiveTool('ellipse')
+      if (e.code === 'KeyH' && !e.metaKey && !e.ctrlKey) {
         e.preventDefault()
         const current = useEditorStore.getState().activeTool
         setActiveTool(current === 'hand' ? 'select' : 'hand')
@@ -274,6 +310,7 @@ export default function Canvas() {
       if (e.code === 'Escape') {
         e.preventDefault()
         const store = useEditorStore.getState()
+        if (store.editingComponentId) { store.setEditingComponent(null); return }
         if (store.editingId) { store.setEditingId(null); return }
         if (store.selectedIds.length === 1) {
           const parentId = store.elements[store.selectedIds[0]]?.parentId
@@ -707,7 +744,32 @@ export default function Canvas() {
       setIsDragOver(false)
       const pos = screenToCanvas(e.clientX, e.clientY)
 
-      // 1) Asset drop (image from the Assets panel)
+      // 1) File drop (image file from filesystem)
+      const files = Array.from(e.dataTransfer.files)
+      const imageFile = files.find((f) => f.type.startsWith('image/'))
+      if (imageFile) {
+        const reader = new FileReader()
+        reader.onload = () => {
+          const w = 240
+          const h = 160
+          const src = reader.result as string
+          pushHistory()
+          const id = addElement({
+            type: 'image',
+            name: imageFile.name.replace(/\.[^.]+$/, ''),
+            x: pos.x,
+            y: pos.y,
+            width: w,
+            height: h,
+            image: { src, objectFit: 'cover' },
+          })
+          useEditorStore.getState().setSelectedIds([id])
+        }
+        reader.readAsDataURL(imageFile)
+        return
+      }
+
+      // 2) Asset drop (image from the Assets panel)
       const assetRaw = e.dataTransfer.getData(ASSET_DND_TYPE)
       if (assetRaw) {
         try {
@@ -765,6 +827,14 @@ export default function Canvas() {
     isPanning.current = false
     if (drawStart.current) finishDraw()
   }, [finishDraw])
+
+  const prevSelectedRef = useRef<string[]>([])
+
+  useEffect(() => {
+    if (editingComponentId) {
+      prevSelectedRef.current = useEditorStore.getState().selectedIds
+    }
+  }, [editingComponentId])
 
   const [showZoom, setShowZoom] = useState(false)
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 })
@@ -852,19 +922,52 @@ export default function Canvas() {
           transformOrigin: '0 0',
           ...(activeBreakpoint !== 'desktop'
             ? {
-                left: '50%',
-                marginLeft: -(breakpointWidths[activeBreakpoint] / 2),
-                width: breakpointWidths[activeBreakpoint],
-                minHeight: '100vh',
-                background: 'var(--canvas-bg)',
-                boxShadow: '0 0 0 9999px rgba(0,0,0,0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '100%',
+                height: '100%',
+                position: 'absolute',
+                top: 0,
+                left: 0,
               }
             : {}),
         }}
       >
-        {rootElementIds.map((id) => (
-          <ElementRenderer key={id} id={id} containerRef={containerRef} />
-        ))}
+        {activeBreakpoint !== 'desktop' ? (
+          <div style={{
+            padding: activeBreakpoint === 'tablet' ? '20px 40px' : '40px 12px',
+            background: 'var(--border-subtle)',
+            borderRadius: activeBreakpoint === 'tablet' ? 24 : 40,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
+          }}>
+            {activeBreakpoint === 'mobile' && (
+              <div style={{ textAlign: 'center', marginBottom: 12 }}>
+                <div style={{ width: 60, height: 6, background: 'var(--surface-2)', borderRadius: 3, display: 'inline-block' }} />
+              </div>
+            )}
+            <div style={{
+              borderRadius: activeBreakpoint === 'tablet' ? 8 : 20,
+              overflow: 'hidden',
+              width: breakpointWidths[activeBreakpoint],
+              minHeight: '80vh',
+              background: 'var(--canvas-bg)',
+            }}>
+              {rootElementIds.map((id) => (
+                <ElementRenderer key={id} id={id} containerRef={containerRef} />
+              ))}
+            </div>
+            {activeBreakpoint === 'mobile' && (
+              <div style={{ textAlign: 'center', marginTop: 12 }}>
+                <div style={{ width: 32, height: 4, background: 'var(--surface-3)', borderRadius: 2, display: 'inline-block' }} />
+              </div>
+            )}
+          </div>
+        ) : (
+          rootElementIds.map((id) => (
+            <ElementRenderer key={id} id={id} containerRef={containerRef} />
+          ))
+        )}
 
         {drawPreview && (drawPreview.w > 0 || drawPreview.h > 0) && (
           <div
@@ -941,132 +1044,240 @@ export default function Canvas() {
         )}
       </div>
 
+      {/* Overlay rendering */}
+      {previewMode && openOverlayIds.map((overlayElId) => {
+        const overlayEl = useEditorStore.getState().elements[overlayElId]
+        if (!overlayEl) return null
+        return (
+          <div
+            key={`overlay-${overlayElId}`}
+            className="absolute inset-0 z-[1000]"
+            style={{
+              position: 'fixed',
+              top: 0, left: 0, right: 0, bottom: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(0, 0, 0, 0.5)',
+            }}
+            onClick={() => useOverlayStore.getState().closeOverlay(overlayElId)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: overlayEl.width,
+                height: overlayEl.height,
+                background: overlayEl.style?.backgroundColor || 'var(--panel-bg)',
+                borderRadius: overlayEl.style?.borderRadius || 8,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                overflow: 'hidden',
+              }}
+            >
+              <ElementRenderer key={`overlay-inner-${overlayElId}`} id={overlayElId} containerRef={containerRef} />
+            </div>
+          </div>
+        )
+      })}
+
       {!previewMode && <SelectionManager containerRef={containerRef} />}
 
-      {!previewMode && showRuler && (
-        <CanvasRulers width={containerSize.width} height={containerSize.height} />
-      )}
+      <AnimatePresence>
+        {!previewMode && showRuler && (
+          <motion.div
+            key="rulers"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: DURATION.fast, ease: EASE.standard }}
+          >
+            <CanvasRulers width={containerSize.width} height={containerSize.height} />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {!previewMode && (
-        <div style={{ position: 'absolute', bottom: 12, left: 12, zIndex: 50, display: 'flex', gap: 8 }}>
-          {/* Grid toggle */}
-          <button
-            onClick={() => setShowGrid(!showGrid)}
-            title={showGrid ? 'Hide grid' : 'Show grid'}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 28, height: 28, borderRadius: 6,
-              background: showGrid ? 'var(--surface-2)' : 'var(--panel-bg)',
-              backdropFilter: 'blur(8px)',
-              border: '0.5px solid var(--border)',
-              color: showGrid ? 'var(--accent)' : 'var(--text-tertiary)',
-              cursor: 'pointer', fontSize: 11,
-              fontFamily: 'var(--font-ui)',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-              transition: 'color var(--duration-instant), background var(--duration-instant)',
-            }}
-          >
-            <Grid3X3 size={13} />
-          </button>
-          {/* Ruler toggle */}
-          <button
-            onClick={() => setShowRuler(!showRuler)}
-            title={showRuler ? 'Hide rulers' : 'Show rulers'}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 28, height: 28, borderRadius: 6,
-              background: showRuler ? 'var(--surface-2)' : 'var(--panel-bg)',
-              backdropFilter: 'blur(8px)',
-              border: '0.5px solid var(--border)',
-              color: showRuler ? 'var(--accent)' : 'var(--text-tertiary)',
-              cursor: 'pointer', fontSize: 11,
-              fontFamily: 'var(--font-ui)',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-              transition: 'color var(--duration-instant), background var(--duration-instant)',
-            }}
-          >
-            <Ruler size={13} />
-          </button>
-          <div style={{ position: 'relative' }}>
-          <button
-            style={{
-              display: 'flex', alignItems: 'center', gap: 4,
-              padding: '4px 8px', borderRadius: 6,
-              background: 'var(--panel-bg)',
-              backdropFilter: 'blur(8px)',
-              border: '0.5px solid var(--border)',
-              color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: 11,
-              fontFamily: 'var(--font-ui)',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-              transition: 'color var(--duration-instant)',
-              fontVariantNumeric: 'tabular-nums',
-            }}
-            onClick={() => setShowZoom(v => !v)}
-            onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}
-          >
-            {Math.round(canvas.scale * 100)}%
-            <ChevronDown size={9} />
-          </button>
-          {showZoom && (
-            <>
-              <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={() => setShowZoom(false)} />
-              <div style={{
-                position: 'absolute', bottom: 34, left: 0, zIndex: 50,
-                background: 'var(--panel-bg)', border: '1px solid var(--border)',
-                borderRadius: 8, padding: 4, minWidth: 100,
-                boxShadow: 'var(--shadow-dropdown)',
-              }}>
-                {ZOOM_PRESETS.map(pct => (
-                  <button
-                    key={pct}
-                    onClick={() => { setCanvas({ scale: pct / 100 }); setShowZoom(false) }}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      width: '100%', padding: '4px 8px', borderRadius: 4,
-                      border: 'none', cursor: 'pointer', fontSize: 11,
-                      background: Math.round(canvas.scale * 100) === pct ? 'var(--surface-2)' : 'transparent',
-                      color: Math.round(canvas.scale * 100) === pct ? 'var(--text-primary)' : 'var(--text-secondary)',
-                      fontFamily: 'var(--font-ui)',
-                      transition: 'background var(--duration-instant)',
-                    }}
-                    onMouseEnter={e => { if (Math.round(canvas.scale * 100) !== pct) e.currentTarget.style.background = 'var(--surface-2)' }}
-                    onMouseLeave={e => { if (Math.round(canvas.scale * 100) !== pct) e.currentTarget.style.background = 'transparent' }}
-                  >
-                    {pct}%
-                    {Math.round(canvas.scale * 100) === pct && <span style={{ fontSize: 10, color: 'var(--accent)' }}>✓</span>}
-                  </button>
-                ))}
-                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-                <button
-                  onClick={() => { setCanvas({ x: 0, y: 0, scale: 1 }); setShowZoom(false) }}
-                  style={{
-                    display: 'block', width: '100%', textAlign: 'left',
-                    padding: '4px 8px', borderRadius: 4, border: 'none',
-                    background: 'transparent', color: 'var(--text-tertiary)',
-                    cursor: 'pointer', fontSize: 11,
-                    fontFamily: 'var(--font-ui)',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >
-                  Reset view
-                </button>
-              </div>
-            </>
-          )}
+        <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 50 }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 0,
+            height: 30, borderRadius: 8,
+            background: 'rgba(28,28,28,0.9)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            border: '0.5px solid var(--border-strong)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+            padding: '0 4px',
+          }}>
+            {/* Grid toggle */}
+            <button
+              onClick={() => setShowGrid(!showGrid)}
+              title={showGrid ? 'Hide grid' : 'Show grid'}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 26, height: 26, borderRadius: 4,
+                background: showGrid ? 'rgba(255,255,255,0.06)' : 'transparent',
+                border: 'none', cursor: 'pointer',
+                color: showGrid ? 'var(--accent)' : 'var(--text-tertiary)',
+                fontSize: 11, fontFamily: 'var(--font-ui)',
+                transition: 'color var(--duration-instant), background var(--duration-instant)',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'var(--text-secondary)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = showGrid ? 'rgba(255,255,255,0.06)' : 'transparent'; e.currentTarget.style.color = showGrid ? 'var(--accent)' : 'var(--text-tertiary)' }}
+            >
+              <Grid3X3 size={12} />
+            </button>
+            {/* Ruler toggle */}
+            <button
+              onClick={() => setShowRuler(!showRuler)}
+              title={showRuler ? 'Hide rulers' : 'Show rulers'}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 26, height: 26, borderRadius: 4,
+                background: showRuler ? 'rgba(255,255,255,0.06)' : 'transparent',
+                border: 'none', cursor: 'pointer',
+                color: showRuler ? 'var(--accent)' : 'var(--text-tertiary)',
+                fontSize: 11, fontFamily: 'var(--font-ui)',
+                transition: 'color var(--duration-instant), background var(--duration-instant)',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'var(--text-secondary)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = showRuler ? 'rgba(255,255,255,0.06)' : 'transparent'; e.currentTarget.style.color = showRuler ? 'var(--accent)' : 'var(--text-tertiary)' }}
+            >
+              <Ruler size={12} />
+            </button>
+            <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 2px' }} />
+            {/* Zoom */}
+            <div style={{ position: 'relative' }}>
+              <button
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 3,
+                  padding: '0 8px', height: 26, borderRadius: 4,
+                  border: 'none', cursor: 'pointer',
+                  background: 'transparent',
+                  color: 'var(--text-tertiary)', fontSize: 10,
+                  fontFamily: 'var(--font-ui)',
+                  transition: 'color var(--duration-instant)',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+                onClick={() => setShowZoom(v => !v)}
+                onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-secondary)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)' }}
+              >
+                {Math.round(canvas.scale * 100)}%
+                <ChevronDown size={8} />
+              </button>
+              {showZoom && (
+                <>
+                  <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={() => setShowZoom(false)} />
+                  <div style={{
+                    position: 'absolute', bottom: 34, left: 0, zIndex: 50,
+                    background: 'var(--panel-bg)', border: '1px solid var(--border-strong)',
+                    borderRadius: 8, padding: 4, minWidth: 80,
+                    boxShadow: 'var(--shadow-dropdown)',
+                  }}>
+                    {ZOOM_PRESETS.map(pct => (
+                      <button
+                        key={pct}
+                        onClick={() => { setCanvas({ scale: pct / 100 }); setShowZoom(false) }}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          width: '100%', padding: '3px 8px', borderRadius: 4,
+                          border: 'none', cursor: 'pointer', fontSize: 10,
+                          background: Math.round(canvas.scale * 100) === pct ? 'var(--surface-2)' : 'transparent',
+                          color: Math.round(canvas.scale * 100) === pct ? 'var(--text-primary)' : 'var(--text-secondary)',
+                          fontFamily: 'var(--font-ui)',
+                          transition: 'background var(--duration-instant)',
+                        }}
+                        onMouseEnter={e => { if (Math.round(canvas.scale * 100) !== pct) e.currentTarget.style.background = 'var(--surface-2)' }}
+                        onMouseLeave={e => { if (Math.round(canvas.scale * 100) !== pct) e.currentTarget.style.background = 'transparent' }}
+                      >
+                        {pct}%
+                        {Math.round(canvas.scale * 100) === pct && <span style={{ fontSize: 9, color: 'var(--accent)' }}>✓</span>}
+                      </button>
+                    ))}
+                    <div style={{ height: 1, background: 'var(--border)', margin: '2px 0' }} />
+                    <button
+                      onClick={() => { setCanvas({ x: 0, y: 0, scale: 1 }); setShowZoom(false) }}
+                      style={{
+                        display: 'block', width: '100%', textAlign: 'left',
+                        padding: '3px 8px', borderRadius: 4, border: 'none',
+                        background: 'transparent', color: 'var(--text-tertiary)',
+                        cursor: 'pointer', fontSize: 10,
+                        fontFamily: 'var(--font-ui)',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      Reset view
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
 
-      {contextMenu && (
-        <ContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          elementId={contextMenu.elementId}
-          onClose={() => setContextMenu(null)}
-        />
+      {editingComponentId && !previewMode && (
+        <>
+          <style>{`
+            [data-instance-of="${editingComponentId}"] {
+              outline: 1.5px solid var(--accent) !important;
+              outline-offset: -1px;
+            }
+          `}</style>
+          <div style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0, zIndex: 60,
+            height: 36,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 10,
+            background: 'var(--surface-1)',
+            borderBottom: '1px solid var(--accent-border)',
+            fontSize: 12,
+            fontWeight: 500,
+            color: 'var(--text-primary)',
+            fontFamily: 'var(--font-ui)',
+          }}>
+            <Component size={14} strokeWidth={1.6} />
+            Editing {elements[editingComponentId]?.name || 'Component'}
+            <button
+              onClick={() => {
+                const store = useEditorStore.getState()
+                store.setSelectedIds(prevSelectedRef.current)
+                store.setEditingComponent(null)
+              }}
+              style={{
+                padding: '4px 12px',
+                borderRadius: 6,
+                border: '1px solid var(--border-strong)',
+                background: 'var(--surface-hover)',
+                color: 'var(--text-primary)',
+                cursor: 'pointer',
+                fontSize: 11,
+                fontWeight: 500,
+                fontFamily: 'var(--font-ui)',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-hover)' }}
+            >
+              Done
+            </button>
+          </div>
+        </>
       )}
+
+      <AnimatePresence>
+        {contextMenu && (
+          <ContextMenu
+            key="context-menu"
+            x={contextMenu.x}
+            y={contextMenu.y}
+            elementId={contextMenu.elementId}
+            onClose={() => setContextMenu(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

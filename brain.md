@@ -56,16 +56,19 @@ framer/
 │   │
 │   ├── app/
 │   │   ├── App.tsx         # <RouterProvider router={router} />
-│   │   └── routes.tsx      # 3 routes: /auth, /, /editor/:projectId
+│   │   └── routes.tsx      # 4 routes: /auth, /reset-password, /, /editor/:projectId
 │   │
 │   ├── pages/
 │   │   ├── Auth.tsx        # Sign in/up/reset, Google OAuth, gallery
 │   │   ├── Dashboard.tsx   # Project grid, CRUD, search, templates
-│   │   └── Editor.tsx      # Main editor layout (toolbar + panels + canvas)
+│   │   ├── Editor.tsx      # Main editor layout (toolbar + panels + canvas)
+│   │   └── ResetPassword.tsx # Set new password recovery page
 │   │
 │   ├── editor/
 │   │   ├── canvas/
-│   │   │   └── Canvas.tsx       # Infinite canvas, pan/zoom, draw tools, DnD drop
+│   │   │   ├── Canvas.tsx       # Infinite canvas, pan/zoom, draw tools, DnD drop
+│   │   │   ├── CanvasRulers.tsx # Tick-mark rulers for canvas
+│   │   │   └── InstanceBadge.tsx # Component instance badges on canvas
 │   │   ├── elements/
 │   │   │   ├── Element.tsx      # Core renderer: resolves instances, breakpoints, CMS
 │   │   │   ├── FrameElement.tsx # Frame/shape rendering (auto-layout, styles)
@@ -75,12 +78,8 @@ framer/
 │   │   │   └── types.ts        # Re-exports Element type
 │   │   ├── selection/
 │   │   │   ├── SelectionManager.tsx  # Moveable + Selecto integration (click-nest, drag-nest, smart-guides)
-│   │   │   ├── SmartGuides.tsx       # Alignment snapping (16px snap grid, edge/center)
+│   │   │   ├── SmartGuides.tsx       # Alignment snapping (10px snap grid, edge/center)
 │   │   │   └── AlignmentBar.tsx      # Multi-select alignment controls
-│   │   ├── canvas/
-│   │   │   ├── Canvas.tsx       # Infinite canvas + pan/zoom/draw/DnD
-│   │   │   ├── CanvasRulers.tsx # Tick-mark rulers for canvas
-│   │   │   └── InstanceBadge.tsx # Component instance badges on canvas
 │   │   ├── history/
 │   │   │   └── HistoryPanel.tsx # Snapshot list with jump-to-state
 │   │   └── transform/
@@ -152,7 +151,8 @@ framer/
 │   │   ├── uiStore.ts       # Panel layout state: left/right widths, active panel tabs, copilot width
 │   │   ├── hoverStore.ts    # Canvas→Layers hover sync (element hover state + source tracking)
 │   │   ├── toastStore.ts    # Toast notification queue (auto-dismiss, stack)
-│   │   └── copilotStore.ts  # AI Copilot: messages, generation output, accept/discard, 30s timeout
+│   │   ├── copilotStore.ts  # AI Copilot: messages, generation output, accept/discard, 30s timeout
+│   │   └── overlayStore.ts  # Active popover/overlay states
 │   │
 │   ├── hooks/
 │   │   ├── useKeyboard.ts       # Delete, duplicate, undo/redo, group, arrows, tab
@@ -182,18 +182,16 @@ framer/
 │   │
 │   └── assets/               # Static images (hero.png, vite.svg)
 │
-├── supabase/                 # Local Supabase (monorepo submodule)
-│   ├── config.toml
-│   ├── migrations/20260701124714_init.sql
-│   ├── docker/               # Docker compose files for supabase services
-│   └── ...
+├── supabase/                 # Backend configuration & Edge functions
+│   ├── config.toml           # Supabase config
+│   ├── functions/            # Edge functions
+│   │   ├── ai-design/        # AI Copilot assistant
+│   │   └── send-reset-email/ # Password reset email generator
+│   └── smtp-relay/           # SMTP local relay server
 │
-├── dist/                     # Build output
+├── dist/                     # Build output (ignored)
 ├── supabase-schema.sql       # Full schema dump
-├── framer-clone-build-spec.md  # 1383-line build specification
-├── framer-clone-feature-spec.md # 1000-line feature specification
-├── README.md                 # 510-line main README
-├── REPO_AUDIT.md             # 632-line audit report
+├── README.md                 # Main project README
 └── CONTRIBUTING.md           # Contribution guidelines
 ```
 
@@ -204,6 +202,7 @@ framer/
 | Path | Component | Auth | Description |
 |------|-----------|------|-------------|
 | `/auth` | `Auth.tsx` | No | Login/signup page |
+| `/reset-password` | `ResetPassword.tsx` | No | Set new password recovery page |
 | `/` | `Dashboard.tsx` | Yes (ProtectedRoute) | Project list |
 | `/editor/:projectId` | `Editor.tsx` | Yes (ProtectedRoute) | Visual editor |
 
@@ -293,6 +292,61 @@ Element {
 
 **Actions:** `addAsset`, `addAssetFromFile` (FileReader → data URL), `addAssetFromUrl`, `removeAsset`
 
+### 5.6 uiStore (`src/store/uiStore.ts`, ~60 lines)
+
+**State:**
+- `leftPanelWidth: number` — width of the secondary left panel (Layers/CMS/etc.)
+- `rightPanelWidth: number` — width of the secondary right panel (Inspector)
+- `copilotPanelWidth: number` — width of the AI Copilot panel
+- `activeLeftTab: string` — `'layers' | 'components' | 'assets' | 'cms'`
+- `copilotOpen: boolean` — whether the Copilot panel is open
+- `historyOpen: boolean` — whether the History snapshot list is open
+
+**Actions:**
+- `setLeftPanelWidth`, `setRightPanelWidth`, `setCopilotPanelWidth`
+- `setActiveLeftTab`, `setCopilotOpen`, `toggleCopilotOpen`, `setHistoryOpen`
+
+### 5.7 hoverStore (`src/store/hoverStore.ts`, ~30 lines)
+
+**State:**
+- `hoveredId: string | null` — currently hovered element ID on canvas or layers panel
+
+**Actions:**
+- `setHoveredId` — sets the hovered ID with optional delay to avoid flash states
+
+### 5.8 toastStore (`src/store/toastStore.ts`, ~40 lines)
+
+**State:**
+- `toasts: Toast[]` — active toast notifications
+
+**Actions:**
+- `addToast(message, type)` — adds a new toast (`'success' | 'error' | 'warning' | 'info'`) that auto-dismisses after 3 seconds
+- `dismissToast(id)` — manually dismisses a toast
+
+### 5.9 copilotStore (`src/store/copilotStore.ts`, ~150 lines)
+
+**State:**
+- `messages: Message[]` — AI chat messages history
+- `status: 'idle' | 'streaming' | 'completed' | 'error'` — copilot current status
+- `error: string | null`
+- `activeMode: 'generate' | 'redesign'`
+- `currentGeneration: CopilotGeneration | null` — the uncommitted code patch returned by the AI
+
+**Actions:**
+- `setMode`, `clearMessages`, `addMessage`, `sendMessage(prompt, context)`
+- `setGeneration`, `acceptGeneration`, `discardGeneration`, `cancelStreaming`
+
+### 5.10 overlayStore (`src/store/overlayStore.ts`, 24 lines)
+
+**State:**
+- `openOverlays: string[]` — list of currently open overlay/popover IDs
+
+**Actions:**
+- `openOverlay(elementId)` — registers a popover as open
+- `closeOverlay(elementId)` — closes a specific popover
+- `closeAllOverlays()` — closes all open popovers/overlays
+- `isOverlayOpen(elementId)` — checks if a popover is active
+
 ---
 
 ## 6. PAGES — DETAILED
@@ -355,6 +409,15 @@ Element {
 3. Set editor store state
 
 **Hooks used:** `useKeyboard()`, `useClipboard()`, `useAutoSave(projectId)`
+
+### 6.4 Reset Password Page (`src/pages/ResetPassword.tsx`, 195 lines)
+
+**Features:**
+- Verifies reset token (recovery link params `type=recovery` and `access_token` in query or hash fragment)
+- Shows "Verifying link..." loading state or "Invalid or expired link" error page if validation fails
+- Simple, centered 50/50 split interface with brand styling and password input form
+- Integrates `SEO` component and `StructuredData` (organizationSchema)
+- Successfully updates user password via Supabase Auth client (`supabase.auth.updateUser`) and redirects to `/auth` on success
 
 ---
 
@@ -663,7 +726,15 @@ JSON-LD schema helpers for AEO / rich snippets:
 - `cms_collections`: id, project_id, name, fields (JSONB), created_at
 - `cms_items`: id, collection_id, values (JSONB), created_at
 
-**Auth:** Supabase Auth (email/password + Google OAuth). localStorage mock in dev mode.
+**Auth & Recovery:** Supabase Auth (email/password + Google OAuth). Has a fallback to mock localStorage in dev mode.
+For password recovery, a password reset email is generated using a custom Edge Function (`send-reset-email`) which interacts with the Supabase Admin API and triggers the Resend API to deliver the recovery email.
+
+**Edge Functions:**
+- `ai-design`: Deno serverless function that integrates with OpenRouter for generating/redesigning canvas elements based on a user prompt and design tokens.
+- `send-reset-email`: Deno serverless function that generates recovery links and sends reset emails via the Resend API.
+
+**SMTP Relay Server:**
+- A local Node.js SMTP relay server is provided in `supabase/smtp-relay/server.mjs`. It listens on port 1025 and forwards all outgoing emails from the local Supabase instance to Resend.
 
 **Deploy:** Uploads HTML to Supabase Storage bucket and makes it publicly accessible.
 
@@ -861,7 +932,9 @@ npx supabase functions serve ai-design --no-verify-jwt  # AI Copilot Edge Functi
 | Design token extraction (for AI grounding) | ✅ WORKING |
 | Scroll-linked animations | ✅ WORKING |
 | Hand tool (H key pan) | ✅ WORKING |
-| **Overall** | **~88%** |
+| Password reset flow & direct recovery link verification | ✅ WORKING |
+| Local SMTP relay server (forwarding to Resend) | ✅ WORKING |
+| **Overall** | **~90%** |
 
 ---
 

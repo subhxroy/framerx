@@ -76,6 +76,14 @@ export default function ShadowSection() {
     [shadows, writeShadows]
   )
 
+  if (selectedIds.length > 1) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', color: 'var(--text-tertiary)', fontSize: 10 }}>
+        Editing {selectedIds.length} layers
+      </div>
+    )
+  }
+
   if (!el) return null
 
   return (
@@ -106,6 +114,35 @@ export default function ShadowSection() {
             <NumberInput label="Spread" value={s.spread} onChange={(v) => updateShadow(i, { spread: v })} />
           </div>
           <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Inset</span>
+              <button
+                onClick={() => updateShadow(i, { inset: !s.inset })}
+                style={{
+                  width: 28,
+                  height: 16,
+                  borderRadius: 8,
+                  background: s.inset ? 'var(--accent)' : 'var(--surface-3)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  transition: 'background var(--duration-slow)',
+                }}
+              >
+                <div
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    background: 'var(--text-inverse)',
+                    position: 'absolute',
+                    top: 2,
+                    left: s.inset ? 14 : 2,
+                    transition: 'left var(--duration-slow)',
+                  }}
+                />
+              </button>
+            </div>
             <ShadowColorSwatch color={s.color} onChange={(c) => updateShadow(i, { color: c })} />
             <button
               onClick={() => removeShadow(i)}

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { Element } from '@/store/editorStore'
-import { getBorderRadiusCSS, getBoxShadowCSS } from '@/lib/elementStyle'
+import { getBorderRadiusCSS, getBoxShadowCSS, getBorderStyles } from '@/lib/elementStyle'
 
 interface Props {
   element: Element
@@ -14,6 +14,7 @@ const alignMap: Record<string, string> = {
   stretch: 'stretch',
   'space-between': 'space-between',
   'space-around': 'space-around',
+  'space-evenly': 'space-evenly',
 }
 
 function buildFilter(style: Element['style']): string {
@@ -43,10 +44,12 @@ export default function FrameElement({ element, children }: Props) {
     height: hHug ? 'fit-content' : '100%',
   }
 
+  const borderStyles = getBorderStyles(s)
+
   const sharedStyle: React.CSSProperties = {
     backgroundColor: s.backgroundColor || 'transparent',
     borderRadius: radius,
-    border: s.border || 'none',
+    ...borderStyles,
     boxShadow,
     overflow: s.overflow || 'visible',
     filter: filter !== 'none' ? filter : undefined,
@@ -60,7 +63,7 @@ export default function FrameElement({ element, children }: Props) {
         style={{
           ...sizeStyle,
           display: 'flex',
-          flexDirection: al.direction === 'horizontal' ? 'row' : 'column',
+          flexDirection: al.direction === 'horizontal' ? 'row' : al.direction === 'horizontal-reverse' ? 'row-reverse' : al.direction === 'vertical-reverse' ? 'column-reverse' : 'column',
           gap: al.gap,
           padding: `${al.padding.top}px ${al.padding.right}px ${al.padding.bottom}px ${al.padding.left}px`,
           alignItems: alignMap[al.alignItems] ?? 'stretch',

@@ -177,7 +177,7 @@ export default function Editor() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: DURATION.fast, delay: 0.04 }}
+                    transition={{ duration: DURATION.fast, delay: DURATION.stagger }}
                     style={{ width: 240, height: '100%', overflow: 'hidden' }}
                   >
                     <ErrorBoundary name="Layers">
@@ -222,7 +222,7 @@ export default function Editor() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: DURATION.fast, delay: 0.04 }}
+                transition={{ duration: DURATION.fast, delay: DURATION.stagger }}
                 style={{ width: COPILOT_WIDTH, height: '100%', overflow: 'hidden' }}
               >
                 <ErrorBoundary name="Copilot">
@@ -267,7 +267,9 @@ export default function Editor() {
         )}
       </div>
 
-      {showPalette && <CommandPalette onClose={() => setShowPalette(false)} />}
+      <AnimatePresence>
+        {showPalette && <CommandPalette key="command-palette" onClose={() => setShowPalette(false)} />}
+      </AnimatePresence>
       <ToastHost />
     </>
   )

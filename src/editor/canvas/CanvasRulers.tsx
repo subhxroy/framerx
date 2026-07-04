@@ -1,5 +1,6 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 import { useEditorStore } from '@/store/editorStore'
+import { useUIStore } from '@/store/uiStore'
 
 function tickInterval(scale: number): number {
   if (scale <= 0) return 50
@@ -30,6 +31,51 @@ export default function CanvasRulers({ width, height }: Props) {
   const vRef = useRef<HTMLCanvasElement>(null)
   const { x, y, scale } = useEditorStore(s => s.canvas)
   const dpr = window.devicePixelRatio || 1
+  const guides = useUIStore(s => s.guides)
+  const addGuide = useUIStore(s => s.addGuide)
+
+  const [draggingGuide, setDraggingGuide] = useState<{ axis: 'h' | 'v'; pos: number } | null>(null)
+  const dragGuideRef = useRef<{ axis: 'h' | 'v'; pos: number } | null>(null)
+
+  const screenToCanvas = useCallback((clientX: number, clientY: number, axis: 'h' | 'v'): number => {
+    if (axis === 'h') {
+      const rect = hRef.current?.getBoundingClientRect()
+      if (!rect) return 0
+      return (clientX - rect.left - x) / scale
+    }
+    const rect = vRef.current?.getBoundingClientRect()
+    if (!rect) return 0
+    return (clientY - rect.top - y) / scale
+  }, [x, y, scale])
+
+  const handleMouseDown = useCallback((e: React.MouseEvent, axis: 'h' | 'v') => {
+    e.preventDefault()
+    const p = screenToCanvas(e.clientX, e.clientY, axis)
+    const snapped = Math.round(p / 4) * 4
+    dragGuideRef.current = { axis, pos: snapped }
+    setDraggingGuide(dragGuideRef.current)
+
+    const onMouseMove = (e: MouseEvent) => {
+      const p = screenToCanvas(e.clientX, e.clientY, axis)
+      const snapped = Math.round(p / 4) * 4
+      dragGuideRef.current = { axis, pos: snapped }
+      setDraggingGuide(dragGuideRef.current)
+    }
+
+    const onMouseUp = () => {
+      const state = dragGuideRef.current
+      if (state) {
+        addGuide({ type: state.axis === 'h' ? 'horizontal' : 'vertical', position: state.pos })
+      }
+      dragGuideRef.current = null
+      setDraggingGuide(null)
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+  }, [screenToCanvas, addGuide])
 
   useEffect(() => {
     const hc = hRef.current
@@ -126,11 +172,13 @@ export default function CanvasRulers({ width, height }: Props) {
     <>
       <canvas
         ref={hRef}
-        style={{ position: 'absolute', top: 0, left: R, zIndex: 30, pointerEvents: 'none' }}
+        style={{ position: 'absolute', top: 0, left: R, zIndex: 30 }}
+        onMouseDown={(e) => handleMouseDown(e, 'h')}
       />
       <canvas
         ref={vRef}
-        style={{ position: 'absolute', top: R, left: 0, zIndex: 30, pointerEvents: 'none' }}
+        style={{ position: 'absolute', top: R, left: 0, zIndex: 30 }}
+        onMouseDown={(e) => handleMouseDown(e, 'v')}
       />
       <div style={{
         position: 'absolute', top: 0, left: 0, zIndex: 30,
@@ -139,6 +187,64 @@ export default function CanvasRulers({ width, height }: Props) {
         borderRight: `1px solid ${colors.border}`,
         borderBottom: `1px solid ${colors.border}`,
       }} />
+
+      {/* Cursor indicator on horizontal ruler */}
+      {draggingGuide?.axis === 'h' && (
+        <div style={{
+          position: 'absolute',
+          top: R - 6,
+          left: R + x + draggingGuide.pos * scale - 4,
+          zIndex: 31,
+          pointerEvents: 'none',
+          width: 0, height: 0,
+          borderLeft: '4px solid transparent',
+          borderRight: '4px solid transparent',
+          borderTop: '6px solid var(--accent)',
+        }} />
+      )}
+
+      {/* Cursor indicator on vertical ruler */}
+      {draggingGuide?.axis === 'v' && (
+        <div style={{
+          position: 'absolute',
+          top: R + y + draggingGuide.pos * scale - 4,
+          left: R - 6,
+          zIndex: 31,
+          pointerEvents: 'none',
+          width: 0, height: 0,
+          borderTop: '4px solid transparent',
+          borderBottom: '4px solid transparent',
+          borderLeft: '6px solid var(--accent)',
+        }} />
+      )}
+
+      {/* Preview guide line during drag */}
+      {draggingGuide && (
+        <div style={{
+          position: 'absolute',
+          zIndex: 31,
+          pointerEvents: 'none',
+          background: 'var(--accent)',
+          opacity: 0.5,
+          ...(draggingGuide.axis === 'h'
+            ? { left: R, top: R + y + draggingGuide.pos * scale, width: width - R, height: 1 }
+            : { left: R + x + draggingGuide.pos * scale, top: R, width: 1, height: height - R }),
+        }} />
+      )}
+
+      {/* Committed guide lines */}
+      {guides.map((guide, i) => (
+        <div key={i} style={{
+          position: 'absolute',
+          zIndex: 30,
+          pointerEvents: 'none',
+          background: 'var(--accent)',
+          opacity: 0.3,
+          ...(guide.type === 'horizontal'
+            ? { left: R, top: R + y + guide.position * scale, width: width - R, height: 1 }
+            : { left: R + x + guide.position * scale, top: R, width: 1, height: height - R }),
+        }} />
+      ))}
     </>
   )
 }

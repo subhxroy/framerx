@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { useEditorStore } from '@/store/editorStore'
 import { useInstanceUpdate } from './useInstanceUpdate'
 import NumberInput from './NumberInput'
-import SegmentedControl from './SegmentedControl'
+
 
 export default function AutoLayoutSection() {
   const selectedIds = useEditorStore((s) => s.selectedIds)
@@ -49,6 +49,14 @@ export default function AutoLayoutSection() {
     }
   }, [al, setAutoLayout])
 
+  if (selectedIds.length > 1) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', color: 'var(--text-tertiary)', fontSize: 10 }}>
+        Editing {selectedIds.length} layers
+      </div>
+    )
+  }
+
   if (!el || (el.type !== 'frame' && el.type !== 'stack')) return null
 
   const isOn = al?.enabled ?? false
@@ -89,14 +97,30 @@ export default function AutoLayoutSection() {
 
       {isOn && (
         <>
-          <SegmentedControl
-            options={[
-              { value: 'horizontal', label: '→' },
-              { value: 'vertical', label: '↓' },
-            ]}
-            value={al?.direction ?? 'vertical'}
-            onChange={(v) => setAutoLayout({ direction: v })}
-          />
+          <div className="flex gap-1">
+            {(['horizontal', 'horizontal-reverse', 'vertical', 'vertical-reverse'] as const).map((d) => (
+              <button
+                key={d}
+                onClick={() => setAutoLayout({ direction: d })}
+                title={d}
+                style={{
+                  flex: 1,
+                  height: 28,
+                  borderRadius: 'var(--radius-sm)',
+                  background: (al?.direction ?? 'vertical') === d ? 'var(--accent-bg)' : 'transparent',
+                  border: (al?.direction ?? 'vertical') === d ? '1px solid var(--accent-border)' : '1px solid var(--border)',
+                  color: (al?.direction ?? 'vertical') === d ? 'var(--accent)' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                {d === 'horizontal' && '→'}
+                {d === 'horizontal-reverse' && '←'}
+                {d === 'vertical' && '↓'}
+                {d === 'vertical-reverse' && '↑'}
+              </button>
+            ))}
+          </div>
 
           <NumberInput
             label="Gap"
@@ -137,6 +161,7 @@ export default function AutoLayoutSection() {
                 <button
                   key={a}
                   onClick={() => setAutoLayout({ alignItems: a })}
+                  title={a}
                   style={{
                     flex: 1,
                     height: 28,
@@ -145,10 +170,15 @@ export default function AutoLayoutSection() {
                     border: al?.alignItems === a ? '1px solid var(--accent-border)' : '1px solid var(--border)',
                     color: al?.alignItems === a ? 'var(--accent)' : 'var(--text-secondary)',
                     cursor: 'pointer',
-                    fontSize: 'var(--text-xs)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}
                 >
-                  {a}
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    {a === 'start' && <><rect x="1" y="1" width="12" height="3" rx="1" fill="currentColor"/><rect x="1" y="10" width="6" height="3" rx="1" fill="currentColor" opacity="0.5"/></>}
+                    {a === 'center' && <><rect x="1" y="1" width="12" height="3" rx="1" fill="currentColor"/><rect x="4" y="10" width="6" height="3" rx="1" fill="currentColor" opacity="0.5"/></>}
+                    {a === 'end' && <><rect x="1" y="1" width="12" height="3" rx="1" fill="currentColor"/><rect x="7" y="10" width="6" height="3" rx="1" fill="currentColor" opacity="0.5"/></>}
+                    {a === 'stretch' && <><rect x="1" y="1" width="12" height="3" rx="1" fill="currentColor"/><rect x="1" y="10" width="12" height="3" rx="1" fill="currentColor" opacity="0.5"/></>}
+                  </svg>
                 </button>
               ))}
             </div>
@@ -159,10 +189,11 @@ export default function AutoLayoutSection() {
               Justify
             </span>
             <div className="flex gap-1">
-              {(['start', 'center', 'end', 'space-between', 'space-around'] as const).map((j) => (
+              {(['start', 'center', 'end', 'space-between', 'space-around', 'space-evenly'] as const).map((j) => (
                 <button
                   key={j}
                   onClick={() => setAutoLayout({ justifyContent: j })}
+                  title={j}
                   style={{
                     flex: 1,
                     height: 28,
@@ -171,10 +202,17 @@ export default function AutoLayoutSection() {
                     border: al?.justifyContent === j ? '1px solid var(--accent-border)' : '1px solid var(--border)',
                     color: al?.justifyContent === j ? 'var(--accent)' : 'var(--text-secondary)',
                     cursor: 'pointer',
-                    fontSize: 'var(--text-xs)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}
                 >
-                  {j === 'space-between' ? '⇿' : j === 'space-around' ? '⤄' : j}
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    {j === 'start' && <><rect x="1" y="2" width="3" height="10" rx="1" fill="currentColor"/><rect x="6" y="4" width="3" height="8" rx="1" fill="currentColor" opacity="0.5"/></>}
+                    {j === 'center' && <><rect x="3" y="2" width="3" height="10" rx="1" fill="currentColor" opacity="0.5"/><rect x="8" y="2" width="3" height="10" rx="1" fill="currentColor"/></>}
+                    {j === 'end' && <><rect x="5" y="4" width="3" height="8" rx="1" fill="currentColor" opacity="0.5"/><rect x="10" y="2" width="3" height="10" rx="1" fill="currentColor"/></>}
+                    {j === 'space-between' && <><rect x="1" y="2" width="3" height="10" rx="1" fill="currentColor"/><rect x="10" y="2" width="3" height="10" rx="1" fill="currentColor"/></>}
+                    {j === 'space-around' && <><rect x="1" y="2" width="3" height="10" rx="1" fill="currentColor" opacity="0.5"/><rect x="10" y="2" width="3" height="10" rx="1" fill="currentColor" opacity="0.5"/></>}
+                    {j === 'space-evenly' && <><rect x="1" y="2" width="3" height="10" rx="1" fill="currentColor" opacity="0.5"/><rect x="6" y="2" width="3" height="10" rx="1" fill="currentColor" opacity="0.5"/><rect x="11" y="2" width="2" height="10" rx="1" fill="currentColor"/></>}
+                  </svg>
                 </button>
               ))}
             </div>

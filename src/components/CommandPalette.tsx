@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { motion } from 'motion/react'
 import { useEditorStore } from '@/store/editorStore'
+import { DURATION, EASE } from '@/lib/motionTokens'
 import { useProjectStore } from '@/store/projectStore'
 import { useNavigate } from 'react-router-dom'
 import { Search, Layers, Command, FileText, Trash2, Copy, Square } from 'lucide-react'
@@ -134,7 +136,11 @@ export default function CommandPalette({ onClose }: Props) {
   const categoryColor = { layer: '#667eea', command: 'var(--accent)', navigate: '#43e97b' }
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: DURATION.fast, ease: EASE.standard }}
       style={{
         position: 'fixed', inset: 0, zIndex: 1000,
         background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
@@ -228,6 +234,6 @@ export default function CommandPalette({ onClose }: Props) {
           ))}
         </div>
       </div>
-    </div>
+    </motion.div>
   )
 }

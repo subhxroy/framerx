@@ -1,10 +1,11 @@
 import { useCallback, useState, useMemo, useRef, useEffect } from 'react'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
-import type { DragEndEvent } from '@dnd-kit/core'
+import type { DragEndEvent, DragOverEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { Copy, FileText, MoreHorizontal, Plus, Search, Trash2 } from 'lucide-react'
 import { useEditorStore } from '@/store/editorStore'
 import { useHoverStore } from '@/store/hoverStore'
+import { getAbsolutePos } from '@/lib/coords'
 import LayerRow from './LayerRow'
 import ScrollArea from '@/components/ScrollArea'
 import type { Element } from '@/store/editorStore'
@@ -153,6 +154,8 @@ export default function LayersPanel() {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
   )
+  const [dropTargetOverId, setDropTargetOverId] = useState<string | null>(null)
+  const [dropTargetParentId, setDropTargetParentId] = useState<string | null>(null)
 
   const flatItems = useMemo(
     () => flattenTree(rootElementIds, elements, collapsed),
@@ -246,11 +249,61 @@ export default function LayersPanel() {
       } else if (activeParentId !== null && activeParentId === overParentId) {
         // Same parent — reorder within parent's children
         store.reorderChild(activeParentId, activeId, overId)
+      } else {
+        // Cross-parent reparenting
+        const activeAbs = getAbsolutePos(activeId, store.elements)
+        const newParentId = overParentId
+        let newRelX = activeAbs.x
+        let newRelY = activeAbs.y
+        if (newParentId !== null) {
+          const newParentAbs = getAbsolutePos(newParentId, store.elements)
+          newRelX = activeAbs.x - newParentAbs.x
+          newRelY = activeAbs.y - newParentAbs.y
+        }
+        store.updateElement(activeId, {
+          parentId: newParentId,
+          x: Math.round(newRelX),
+          y: Math.round(newRelY),
+        })
       }
-      // Different parents or other cases — no-op (cross-parent reparenting not supported yet)
+      setDropTargetOverId(null)
+      setDropTargetParentId(null)
     },
     [rootElementIds, pushHistory]
   )
+
+  const handleDragOver = useCallback((event: DragOverEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) {
+      setDropTargetOverId(null)
+      setDropTargetParentId(null)
+      return
+    }
+    const activeId = active.id as string
+    const overId = over.id as string
+    const store = useEditorStore.getState()
+    const activeEl = store.elements[activeId]
+    const overEl = store.elements[overId]
+    if (!activeEl || !overEl) {
+      setDropTargetOverId(null)
+      setDropTargetParentId(null)
+      return
+    }
+    const activeParentId = activeEl.parentId ?? null
+    const overParentId = overEl.parentId ?? null
+    if (activeParentId !== overParentId) {
+      setDropTargetOverId(overId)
+      setDropTargetParentId(overParentId)
+    } else {
+      setDropTargetOverId(null)
+      setDropTargetParentId(null)
+    }
+  }, [])
+
+  const handleDragCancel = useCallback(() => {
+    setDropTargetOverId(null)
+    setDropTargetParentId(null)
+  }, [])
 
   const sortableIds = filteredItems.map(item => item.id)
 
@@ -449,7 +502,7 @@ alignItems: 'center',
               </p>
             </div>
           )}
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} onDragOver={handleDragOver} onDragCancel={handleDragCancel}>
             <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
               {filteredItems.filter((item) => elements[item.id]).map((item) => (
                 <LayerRow
@@ -464,6 +517,8 @@ alignItems: 'center',
                   onToggleCollapse={handleToggleCollapse}
                   onRename={handleRename}
                   hasChildren={item.hasChildren}
+                  isDropTarget={dropTargetOverId === item.id}
+                  isTargetParent={dropTargetParentId === item.id}
                 />
               ))}
             </SortableContext>

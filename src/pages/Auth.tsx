@@ -272,15 +272,15 @@ export default function Auth() {
             {/* Continue / Submit Button */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (mode === 'reset' && resetSent)}
               style={{
                 width: '100%',
                 padding: '11px 16px',
                 borderRadius: 8,
-                background: '#e8e8e8',
-                color: '#555555',
+                background: loading ? '#e8e8e8' : '#111111',
+                color: loading ? '#555555' : '#ffffff',
                 border: 'none',
-                cursor: loading ? 'wait' : 'pointer',
+                cursor: loading || (mode === 'reset' && resetSent) ? 'not-allowed' : 'pointer',
                 fontSize: 14,
                 fontWeight: 600,
                 fontFamily: 'Inter, sans-serif',
@@ -288,12 +288,14 @@ export default function Auth() {
                 marginTop: 2,
               }}
               onMouseEnter={e => {
-                e.currentTarget.style.background = '#d4d4d4'
-                e.currentTarget.style.color = '#111111'
+                if (!loading && !(mode === 'reset' && resetSent)) {
+                  e.currentTarget.style.background = '#333333'
+                }
               }}
               onMouseLeave={e => {
-                e.currentTarget.style.background = '#e8e8e8'
-                e.currentTarget.style.color = '#555555'
+                if (!loading && !(mode === 'reset' && resetSent)) {
+                  e.currentTarget.style.background = '#111111'
+                }
               }}
             >
               {loading

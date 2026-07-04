@@ -46,7 +46,7 @@ export default function SegmentedControl({ options, value, onChange }: Props) {
                 background: 'var(--surface-3)',
                 borderRadius: 4,
               }}
-              transition={SPRING.snappy}
+              transition={SPRING.chrome}
             />
           )}
         </button>

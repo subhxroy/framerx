@@ -116,7 +116,7 @@ export default function SmartGuides({ draggingId, canvasTransform, containerRef 
               <line
                 key={i}
                 x1={x} y1={0} x2={x} y2="100%"
-                stroke="var(--accent)"
+                stroke="var(--guide)"
                 strokeWidth="1"
                 strokeDasharray="none"
               />
@@ -127,7 +127,7 @@ export default function SmartGuides({ draggingId, canvasTransform, containerRef 
               <line
                 key={i}
                 x1={0} y1={y} x2="100%" y2={y}
-                stroke="var(--accent)"
+                stroke="var(--guide)"
                 strokeWidth="1"
               />
             )
@@ -148,7 +148,7 @@ export default function SmartGuides({ draggingId, canvasTransform, containerRef 
               left, top,
               transform: 'translate(-50%, -50%)',
               zIndex: 51,
-              background: 'var(--accent)',
+              background: 'var(--guide)',
               color: 'var(--text-inverse)',
               fontSize: 10,
               fontWeight: 600,

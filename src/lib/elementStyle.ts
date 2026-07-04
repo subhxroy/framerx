@@ -1,4 +1,4 @@
-import type { Element, ShadowDef } from '@/store/editorStore'
+import type { Element, ShadowDef, BorderDef } from '@/store/editorStore'
 
 type Style = Element['style']
 
@@ -21,6 +21,45 @@ export function getBoxShadowCSS(style: Style): string | undefined {
   const shadows = style.boxShadow
   if (!shadows || shadows.length === 0) return undefined
   return shadows
-    .map((s: ShadowDef) => `${s.x}px ${s.y}px ${s.blur}px ${s.spread}px ${s.color}`)
+    .map((s: ShadowDef) => `${s.inset ? 'inset ' : ''}${s.x}px ${s.y}px ${s.blur}px ${s.spread}px ${s.color}`)
     .join(', ')
+}
+
+function sideToString(side: BorderDef['top']): string {
+  return `${side.width}px ${side.style} ${side.color}`
+}
+
+function isUniformBorder(b: BorderDef): boolean {
+  return (
+    b.top.width === b.right.width && b.right.width === b.bottom.width && b.bottom.width === b.left.width &&
+    b.top.color === b.right.color && b.right.color === b.bottom.color && b.bottom.color === b.left.color &&
+    b.top.style === b.right.style && b.right.style === b.bottom.style && b.bottom.style === b.left.style
+  )
+}
+
+/**
+ * Compute border CSS properties from the BorderDef array. Returns an object
+ * with either a single `border` (when uniform or legacy) or individual
+ * `borderTop/Right/Bottom/Left` properties. Falls back to the legacy
+ * `style.border` string when no BorderDef array exists.
+ */
+export function getBorderStyles(style: Style): React.CSSProperties {
+  const borders = style.borders
+  if (borders && borders.length > 0) {
+    const visible = borders.filter((b) => b.visible)
+    if (visible.length > 0) {
+      const b = visible[0]
+      if (isUniformBorder(b)) {
+        return { border: sideToString(b.top) }
+      }
+      return {
+        borderTop: sideToString(b.top),
+        borderRight: sideToString(b.right),
+        borderBottom: sideToString(b.bottom),
+        borderLeft: sideToString(b.left),
+      }
+    }
+    return { border: 'none' }
+  }
+  return { border: style.border || 'none' }
 }

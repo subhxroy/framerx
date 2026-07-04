@@ -63,6 +63,11 @@ coverage
 
 # Internal documentation (not for public repo)
 REPO_AUDIT.md
-brain.md
 framer-clone-build-spec.md
 framer-clone-feature-spec.md
+
+# User-specific Claude config
+CLAUDE.md
+
+# Local scraping data
+.firecrawl/

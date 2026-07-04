@@ -19,21 +19,44 @@ function cssProps(styles: Record<string, string | number | undefined>): string {
     .join('\n  ')
 }
 
+function hexToRgba(hex: string, alpha: number): string {
+  if (hex.length === 4) {
+    hex = '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3]
+  }
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return hex
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
+function fillToCSSExport(f: any): string {
+  if (!f.visible) return 'transparent'
+
+  if (f.type === 'solid') {
+    if (f.opacity !== undefined && f.opacity < 100) return hexToRgba(f.color, f.opacity / 100)
+    return f.color
+  }
+
+  if (f.type === 'image') {
+    if (!f.imageSrc) return 'transparent'
+    return `url(${f.imageSrc}) center / ${f.imageFit ?? 'cover'} no-repeat`
+  }
+
+  const stops = (f.stops ?? []).map((s: any) => {
+    const color = f.opacity !== undefined && f.opacity < 100 ? hexToRgba(s.color, f.opacity / 100) : s.color
+    return `${color} ${s.position}%`
+  }).join(', ')
+
+  if (f.type === 'linear-gradient') return `linear-gradient(${f.angle ?? 135}deg, ${stops})`
+  if (f.type === 'radial-gradient') return `radial-gradient(ellipse at center, ${stops})`
+  return f.color
+}
+
 function fillsToBackground(style: Element['style']): string | undefined {
   const fills: any[] = (style as any).fills
   if (fills && fills.length > 0) {
-    const parts = fills.filter((f: any) => f.visible).map((f: any) => {
-      if (f.type === 'solid') return f.color
-      if (f.type === 'linear-gradient') {
-        const stops = (f.stops ?? []).map((s: any) => `${s.color} ${s.position}%`).join(', ')
-        return `linear-gradient(${f.angle ?? 135}deg, ${stops})`
-      }
-      if (f.type === 'radial-gradient') {
-        const stops = (f.stops ?? []).map((s: any) => `${s.color} ${s.position}%`).join(', ')
-        return `radial-gradient(ellipse at center, ${stops})`
-      }
-      return f.color
-    })
+    const parts = fills.filter((f: any) => f.visible).map(fillToCSSExport)
     return parts.join(', ') || undefined
   }
   return style.backgroundColor || undefined

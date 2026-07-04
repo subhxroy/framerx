@@ -94,6 +94,7 @@ export async function signIn(email: string, password: string): Promise<boolean> 
   if (isSupabaseConfigured && supabase) {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
+      useAuthStore.getState().setLoading(false)
       useAuthStore.getState().setError(error.message)
       return false
     }
@@ -102,6 +103,7 @@ export async function signIn(email: string, password: string): Promise<boolean> 
 
   // Local mock — only in dev mode
   if (!import.meta.env.DEV) {
+    useAuthStore.getState().setLoading(false)
     useAuthStore.getState().setError('Authentication is not configured')
     return false
   }
@@ -119,6 +121,7 @@ export async function signUp(email: string, password: string): Promise<boolean> 
   if (isSupabaseConfigured && supabase) {
     const { error, data } = await supabase.auth.signUp({ email, password })
     if (error) {
+      useAuthStore.getState().setLoading(false)
       useAuthStore.getState().setError(error.message)
       return false
     }
@@ -131,6 +134,7 @@ export async function signUp(email: string, password: string): Promise<boolean> 
   }
 
   if (!import.meta.env.DEV) {
+    useAuthStore.getState().setLoading(false)
     useAuthStore.getState().setError('Authentication is not configured')
     return false
   }
@@ -142,6 +146,7 @@ export async function signUp(email: string, password: string): Promise<boolean> 
 }
 
 export async function signInWithGoogle(): Promise<boolean> {
+  useAuthStore.getState().setLoading(true)
   useAuthStore.getState().clearError()
 
   if (isSupabaseConfigured && supabase) {
@@ -150,6 +155,7 @@ export async function signInWithGoogle(): Promise<boolean> {
       options: { redirectTo: window.location.origin + '/dashboard' },
     })
     if (error) {
+      useAuthStore.getState().setLoading(false)
       useAuthStore.getState().setError(error.message)
       return false
     }
@@ -157,6 +163,7 @@ export async function signInWithGoogle(): Promise<boolean> {
   }
 
   if (!import.meta.env.DEV) {
+    useAuthStore.getState().setLoading(false)
     useAuthStore.getState().setError('Authentication is not configured')
     return false
   }
@@ -167,12 +174,14 @@ export async function signInWithGoogle(): Promise<boolean> {
 }
 
 export async function resetPassword(email: string): Promise<boolean> {
+  useAuthStore.getState().setLoading(true)
   useAuthStore.getState().clearError()
 
   if (isSupabaseConfigured && supabase) {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + '/reset-password',
+    const { error } = await supabase.functions.invoke('send-reset-email', {
+      body: { email },
     })
+    useAuthStore.getState().setLoading(false)
     if (error) {
       useAuthStore.getState().setError(error.message)
       return false
@@ -181,10 +190,12 @@ export async function resetPassword(email: string): Promise<boolean> {
   }
 
   if (!import.meta.env.DEV) {
+    useAuthStore.getState().setLoading(false)
     useAuthStore.getState().setError('Authentication is not configured')
     return false
   }
   await new Promise((r) => setTimeout(r, 400))
+  useAuthStore.getState().setLoading(false)
   return true
 }
 

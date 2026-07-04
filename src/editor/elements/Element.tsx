@@ -248,6 +248,7 @@ function ElementRenderer({ id, containerRef, flow = false }: Props) {
   const dataAttrs = {
     'data-element-id': id,
     'data-parent-id': merged.parentId || '',
+    ...(element?.isInstance && element?.masterId ? { 'data-instance-of': element.masterId } : {}),
   }
 
   // Collection frame in preview mode — render once per CMS item
@@ -274,9 +275,11 @@ function ElementRenderer({ id, containerRef, flow = false }: Props) {
     }
   }
 
+  const isRootPage = !previewMode && !merged.parentId && merged.type === 'frame'
+
   return (
     <>
-      {!previewMode && !merged.parentId && merged.type === 'frame' && (
+      {isRootPage && (
         <div style={{
           position: 'absolute',
           left: merged.x,
@@ -292,6 +295,21 @@ function ElementRenderer({ id, containerRef, flow = false }: Props) {
           {merged.name}
         </div>
       )}
+      {isRootPage && (
+        <div style={{
+          position: 'absolute',
+          left: merged.x - (4 / canvasScale),
+          top: merged.y - (4 / canvasScale),
+          width: merged.width + (8 / canvasScale),
+          height: merged.height + (8 / canvasScale),
+          borderRadius: 4 / canvasScale,
+          border: `1px solid rgba(255,255,255,0.06)`,
+          background: 'transparent',
+          pointerEvents: 'none',
+          boxShadow: `0 0 0 1px rgba(0,0,0,0.15), 0 ${8 / canvasScale}px ${24 / canvasScale}px rgba(0,0,0,0.2)`,
+          zIndex: 0,
+        }} />
+      )}
       <AnimatedElement
         interactions={previewMode ? element?.interactions : undefined}
         scrollLinks={previewMode ? element?.scrollLinks : undefined}
@@ -303,9 +321,10 @@ function ElementRenderer({ id, containerRef, flow = false }: Props) {
         isInAutoLayout={flow}
         isAutoLayoutFrame={isAutoLayoutContainer}
       >
-        {element?.isInstance && !previewMode && (
-          <InstanceBadge elementId={id} scale={canvasScale} />
-        )}
+        {element?.isInstance && !previewMode && (() => {
+          const masterEl = element.masterId ? useEditorStore.getState().elements[element.masterId] : null
+          return <InstanceBadge elementId={id} name={masterEl?.name || 'Component'} scale={canvasScale} />
+        })()}
         {renderContent()}
         {children}
       </AnimatedElement>

@@ -63,24 +63,27 @@ The project follows a feature-based structure inside `src/`:
 ```
 src/
 ├── app/           # App root + route definitions
-├── pages/         # Auth, Dashboard, Editor pages
-├── editor/        # Canvas renderer, element system, selection
+├── pages/         # Auth, Dashboard, Editor, ResetPassword pages
+├── editor/        # Canvas renderer, element system, selection, history, transform
 │   ├── canvas/
 │   ├── elements/
-│   └── selection/
+│   ├── selection/
+│   ├── history/
+│   └── transform/
 ├── panels/        # All side panel UIs
 │   ├── toolbar/
 │   ├── layers/
-│   ├── inspector/ # 12+ section components
+│   ├── inspector/ # 18 files: Layout, AutoLayout, Typography, Fill, Border, BorderRadius, Shadow, Blur, Image, Animation, Interaction, CMSBinding, CodePanel, ColorPicker, NumberInput, RespNumberInput, InspectorPanel, useInstanceUpdate
 │   ├── components/
 │   ├── cms/
 │   ├── assets/
+│   ├── copilot/
 │   ├── context/
 │   └── publish/
 ├── components/    # Shared app-level components
 ├── hooks/         # Shared React hooks
 ├── lib/           # Utilities, clients, export generators
-└── store/         # Zustand state management (5 stores)
+└── store/         # Zustand state management (10 stores)
 ```
 
 ### State Management (Zustand)
@@ -92,6 +95,11 @@ src/
 | `authStore` | Auth state, sign-in, sign-up, sign-out |
 | `cmsStore` | CMS collections, fields, items |
 | `assetsStore` | Uploaded image asset registry |
+| `uiStore` | Panel layout heights, widths, and active tabs |
+| `hoverStore` | Hover sync between elements on canvas and layers panel |
+| `toastStore` | Global toast notification queue |
+| `copilotStore` | AI Copilot messages and streaming states |
+| `overlayStore` | Active popover and overlay states |
 
 ### Key Libraries
 

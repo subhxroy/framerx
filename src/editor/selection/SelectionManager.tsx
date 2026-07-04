@@ -1,4 +1,5 @@
 import { useRef, useCallback, useEffect, useState, useMemo } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
 import Moveable from 'react-moveable'
 import Selecto from 'selecto'
 import { useEditorStore } from '@/store/editorStore'
@@ -7,7 +8,7 @@ import SmartGuides from './SmartGuides'
 import AlignmentBar from './AlignmentBar'
 import { findContainerAt } from '@/lib/hitTest'
 import { getAbsolutePos } from '@/lib/coords'
-import { THRESHOLD } from '@/lib/motionTokens'
+import { THRESHOLD, SPRING, DURATION, EASE, TRANSITION } from '@/lib/motionTokens'
 
 interface Props {
   containerRef: React.RefObject<HTMLDivElement | null>
@@ -31,6 +32,7 @@ export default function SelectionManager({ containerRef }: Props) {
   const editingId = useEditorStore((s) => s.editingId)
   const setSelectedIds = useEditorStore((s) => s.setSelectedIds)
   const updateElement = useEditorStore((s) => s.updateElement)
+  const updateElements = useEditorStore((s) => s.updateElements)
   const moveElement = useEditorStore((s) => s.moveElement)
   const reorderChild = useEditorStore((s) => s.reorderChild)
   const pushHistory = useEditorStore((s) => s.pushHistory)
@@ -49,8 +51,11 @@ export default function SelectionManager({ containerRef }: Props) {
   const [dropTargetId, setDropTargetId] = useState<string | null>(null)
   const dropTargetRef = useRef<string | null>(null)
   const draggedIdRef = useRef<string | null>(null)
+  const altCloneMap = useRef<Record<string, string>>({})
   const updateElementRef = useRef(updateElement)
   updateElementRef.current = updateElement
+  const updateElementsRef = useRef(updateElements)
+  updateElementsRef.current = updateElements
   const moveElementRef = useRef(moveElement)
   moveElementRef.current = moveElement
   // Deferred state: accumulate during interaction, commit on *End — avoids
@@ -65,6 +70,10 @@ export default function SelectionManager({ containerRef }: Props) {
   // element. Restored on end. Tracks whether the element actually moved so a
   // click that never crosses THRESHOLD.dragStart doesn't push a history entry.
   const dragMoved = useRef(false)
+  // Pointer-down origin for the drag-start threshold: onDrag is ignored until
+  // the pointer moves THRESHOLD.dragStart px, so a plain click (or micro
+  // hand-jitter during it) never shifts the element even 1px.
+  const dragOrigin = useRef<{ x: number; y: number } | null>(null)
   const moveableRef = useRef<any>(null)
 
   useEffect(() => {
@@ -137,7 +146,9 @@ export default function SelectionManager({ containerRef }: Props) {
       }
       if (e.isDragStart) return
       if (ids.length > 0 || !e.isClick) {
-        setSelectedIds(ids)
+        const allEls = useEditorStore.getState().elements
+        const unlocked = ids.filter((id) => !allEls[id]?.locked)
+        setSelectedIds(unlocked)
       }
     })
 
@@ -169,7 +180,9 @@ export default function SelectionManager({ containerRef }: Props) {
   useEffect(() => {
     if (!selKey) return
     document.body.classList.add('mv-gliding')
-    const t = window.setTimeout(() => document.body.classList.remove('mv-gliding'), 160)
+    // Window slightly outlasts the CSS glide (DURATION.base) so the class
+    // isn't stripped mid-transition, then clears so live drags never lag.
+    const t = window.setTimeout(() => document.body.classList.remove('mv-gliding'), DURATION.base * 1000 + 40)
     return () => {
       window.clearTimeout(t)
       document.body.classList.remove('mv-gliding')
@@ -264,21 +277,55 @@ export default function SelectionManager({ containerRef }: Props) {
           origin={false}
           padding={{ left: 0, top: 0, right: 0, bottom: 0 }}
           useResizeObserver={true}
-          onDragStart={({ target: t }) => {
-            const id = (t as HTMLElement).getAttribute('data-element-id')
+          onDragStart={(e: any) => {
+            const t = e.target as HTMLElement
+            const id = t.getAttribute('data-element-id')
+            if (id) {
+              const el = useEditorStore.getState().elements[id]
+              if (el?.locked) {
+                e.stop?.()
+                return
+              }
+              if (altHeld.current) {
+                const store = useEditorStore.getState()
+                if (store.elements[id]) {
+                  store.pushHistory()
+                  store.duplicateElement(id)
+                  const newId = useEditorStore.getState().selectedIds[0]
+                  if (newId) {
+                    store.updateElement(newId, { x: el.x, y: el.y })
+                    altCloneMap.current = { [id]: newId }
+                    draggedIdRef.current = newId
+                    dropTargetRef.current = null
+                    dragMoved.current = false
+                    document.body.classList.remove('mv-gliding')
+                    document.body.style.cursor = 'grabbing'
+                    setDraggingId(newId)
+                    return
+                  }
+                }
+              }
+            }
             draggedIdRef.current = id
             dropTargetRef.current = null
             dragMoved.current = false
+            dragOrigin.current = { x: e.clientX, y: e.clientY }
             document.body.classList.remove('mv-gliding')
             document.body.style.cursor = 'grabbing'
             if (id) setDraggingId(id)
           }}
-          onDrag={({ target: t, left, top, clientX, clientY }) => {
-            const id = (t as HTMLElement).getAttribute('data-element-id')
+          onDrag={({ target: t, left, top, clientX, clientY, transform }) => {
+            const rawId = (t as HTMLElement).getAttribute('data-element-id')
+            const id = altCloneMap.current[rawId || ''] || rawId
             if (!id) return
-            // Defer the undo checkpoint to the first real movement so a bare
-            // click (no threshold crossing) never leaves a spurious history entry.
+            // Drag-start threshold: ignore movement until the pointer travels
+            // THRESHOLD.dragStart px from mousedown — a genuine click causes
+            // zero position shift.
             if (!dragMoved.current) {
+              const o = dragOrigin.current
+              if (o && Math.hypot(clientX - o.x, clientY - o.y) < THRESHOLD.dragStart) return
+              // Undo checkpoint on the first real movement only, so a bare
+              // click never leaves a spurious history entry.
               dragMoved.current = true
               pushHistory()
             }
@@ -320,6 +367,10 @@ export default function SelectionManager({ containerRef }: Props) {
               return
             }
 
+            // Live movement: mutate the DOM node directly during the drag —
+            // zero store updates / React renders per mousemove. The final
+            // position is committed to the store once, in onDragEnd.
+            ;(t as HTMLElement).style.transform = transform
             dragEndPos.current[id] = { x: left, y: top }
             const r = (t as HTMLElement).getBoundingClientRect()
             setDimLabel({ x: r.left + r.width / 2, y: r.bottom + 8 / canvas.scale, text: `${Math.round(el.width)} × ${Math.round(el.height)}` })
@@ -349,6 +400,7 @@ export default function SelectionManager({ containerRef }: Props) {
               reorderTarget.current = null
               setInsertionLine(null)
               dragEndPos.current = {}
+              altCloneMap.current = {}
               return
             }
 
@@ -369,19 +421,62 @@ export default function SelectionManager({ containerRef }: Props) {
                 })
               }
               dragEndPos.current = {}
+              altCloneMap.current = {}
               return
             }
 
-            // Plain drag: commit all accumulated positions (multi-select).
-            for (const [id, pos] of Object.entries(dragEndPos.current)) {
-              updateElementRef.current(id, { x: pos.x, y: pos.y })
+            // Plain drag: commit all accumulated positions in ONE batched
+            // store update (multi-select = one render, not N).
+            const batch: Record<string, { x: number; y: number }> = {}
+            for (const [rawId, pos] of Object.entries(dragEndPos.current)) {
+              const id = altCloneMap.current[rawId] || rawId
+              batch[id] = { x: pos.x, y: pos.y }
             }
+            if (Object.keys(batch).length) updateElementsRef.current(batch)
+            dragEndPos.current = {}
+            altCloneMap.current = {}
+          }}
+          onDragGroupStart={() => {
+            dragMoved.current = false
+            document.body.classList.remove('mv-gliding')
+            document.body.style.cursor = 'grabbing'
+          }}
+          onDragGroup={({ events }) => {
+            // Multi-select drag: direct-DOM move for every selected node,
+            // accumulate final positions, commit ONE batched update on end.
+            if (!dragMoved.current) {
+              dragMoved.current = true
+              pushHistory()
+            }
+            for (const ev of events) {
+              const id = (ev.target as HTMLElement).getAttribute('data-element-id')
+              if (!id) continue
+              ;(ev.target as HTMLElement).style.transform = ev.transform
+              dragEndPos.current[id] = { x: ev.left, y: ev.top }
+            }
+          }}
+          onDragGroupEnd={() => {
+            document.body.style.cursor = ''
+            const batch: Record<string, { x: number; y: number }> = {}
+            for (const [id, pos] of Object.entries(dragEndPos.current)) {
+              batch[id] = { x: pos.x, y: pos.y }
+            }
+            if (Object.keys(batch).length) updateElementsRef.current(batch)
             dragEndPos.current = {}
           }}
-          onResizeStart={({ target: t, direction }) => {
+          onResizeStart={(e: any) => {
+            const t = e.target as HTMLElement
+            const id = t.getAttribute('data-element-id')
+            if (id) {
+              const el = useEditorStore.getState().elements[id]
+              if (el?.locked) {
+                e.stop?.()
+                return
+              }
+            }
             pushHistory()
             resizeEndState.current = {}
-            const id = (t as HTMLElement).getAttribute('data-element-id')
+            const direction = e.direction
             const el = id ? elements[id] : null
             resizeStartCenter.current = el
               ? { x: el.x + el.width / 2, y: el.y + el.height / 2 }
@@ -391,7 +486,7 @@ export default function SelectionManager({ containerRef }: Props) {
             // pointer overshoots the handle during a fast resize.
             document.body.style.cursor = resizeCursorFor(direction)
           }}
-          onResize={({ target: t, width, height, delta, direction }) => {
+          onResize={({ target: t, width, height, delta, direction, drag }) => {
             const id = (t as HTMLElement).getAttribute('data-element-id')
             if (!id) return
             const el = elements[id]
@@ -404,6 +499,20 @@ export default function SelectionManager({ containerRef }: Props) {
               if (delta[0]) changes.x = el.x + (direction[0] < 0 ? el.width - width : 0)
               if (delta[1]) changes.y = el.y + (direction[1] < 0 ? el.height - height : 0)
             }
+            // Live feedback: mutate the DOM directly, store commit happens
+            // once in onResizeEnd. Flow (auto-layout) children are position:
+            // relative — never translate them, only size.
+            const node = t as HTMLElement
+            const inFlow = !!(el.parentId && elements[el.parentId]?.autoLayout?.enabled)
+            node.style.width = `${width}px`
+            node.style.height = `${height}px`
+            if (!inFlow) {
+              if (changes.x !== undefined || changes.y !== undefined) {
+                node.style.transform = `translate(${changes.x ?? el.x}px, ${changes.y ?? el.y}px) rotate(${el.rotation}deg)`
+              } else if (drag?.transform) {
+                node.style.transform = drag.transform
+              }
+            }
             resizeEndState.current[id] = changes
             const r = (t as HTMLElement).getBoundingClientRect()
             setDimLabel({ x: r.left + r.width / 2, y: r.bottom + 8 / canvas.scale, text: `${Math.round(width)} × ${Math.round(height)}` })
@@ -412,15 +521,35 @@ export default function SelectionManager({ containerRef }: Props) {
             setDimLabel(null)
             resizeStartCenter.current = null
             document.body.style.cursor = ''
-            for (const [id, changes] of Object.entries(resizeEndState.current)) {
-              updateElementRef.current(id, changes)
+            if (Object.keys(resizeEndState.current).length) {
+              updateElementsRef.current(resizeEndState.current)
             }
             resizeEndState.current = {}
           }}
-          onRotateStart={() => { pushHistory(); rotateEndState.current = {}; document.body.style.cursor = 'grabbing' }}
+          onRotateStart={(e: any) => {
+            const t = e.target as HTMLElement
+            const id = t.getAttribute('data-element-id')
+            if (id) {
+              const el = useEditorStore.getState().elements[id]
+              if (el?.locked) {
+                e.stop?.()
+                return
+              }
+            }
+            pushHistory(); rotateEndState.current = {}; document.body.style.cursor = 'grabbing'
+          }}
           onRotate={({ target: t, rotation }) => {
             const id = (t as HTMLElement).getAttribute('data-element-id')
             if (id) {
+              const el = elements[id]
+              // Live feedback: direct DOM rotation; store commit on end.
+              // Flow children carry rotate-only transforms (no translate).
+              if (el) {
+                const inFlow = !!(el.parentId && elements[el.parentId]?.autoLayout?.enabled)
+                ;(t as HTMLElement).style.transform = inFlow
+                  ? `rotate(${rotation}deg)`
+                  : `translate(${el.x}px, ${el.y}px) rotate(${rotation}deg)`
+              }
               rotateEndState.current[id] = rotation
               const r = (t as HTMLElement).getBoundingClientRect()
               setDimLabel({ x: r.left + r.width / 2, y: r.bottom + 8 / canvas.scale, text: `${Math.round(rotation)}°` })
@@ -429,9 +558,11 @@ export default function SelectionManager({ containerRef }: Props) {
           onRotateEnd={() => {
             setDimLabel(null)
             document.body.style.cursor = ''
+            const rotBatch: Record<string, { rotation: number }> = {}
             for (const [id, rotation] of Object.entries(rotateEndState.current)) {
-              updateElementRef.current(id, { rotation })
+              rotBatch[id] = { rotation }
             }
+            if (Object.keys(rotBatch).length) updateElementsRef.current(rotBatch)
             rotateEndState.current = {}
           }}
           controlPadding={0}
@@ -440,77 +571,105 @@ export default function SelectionManager({ containerRef }: Props) {
         />
       )}
 
-      {alignBarPos && selectedIds.length >= 2 && (
-        <div
-          className="fixed pointer-events-auto"
-          style={{
-            left: alignBarPos.x,
-            top: Math.max(8, alignBarPos.y),
-            transform: 'translateX(-50%)',
-            zIndex: 300,
-          }}
-        >
-          <AlignmentBar />
-        </div>
-      )}
-
-      {dropTargetId && (() => {
-        const node = document.querySelector(`[data-element-id="${dropTargetId}"]`)
-        if (!node) return null
-        const r = node.getBoundingClientRect()
-        return (
-          <div
-            className="fixed pointer-events-none z-[240]"
+      <AnimatePresence>
+        {alignBarPos && selectedIds.length >= 2 && (
+          <motion.div
+            key="align-bar"
+            className="fixed pointer-events-auto"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={SPRING.chrome}
             style={{
-              left: r.left,
-              top: r.top,
-              width: r.width,
-              height: r.height,
-              border: '2px solid var(--accent)',
-              borderRadius: 4,
-              boxShadow: 'inset 0 0 0 9999px var(--accent-dim)',
+              left: alignBarPos.x,
+              top: Math.max(8, alignBarPos.y),
+              transform: 'translateX(-50%)',
+              zIndex: 300,
+            }}
+          >
+            <AlignmentBar />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {dropTargetId && (() => {
+          const node = document.querySelector(`[data-element-id="${dropTargetId}"]`)
+          if (!node) return null
+          const r = node.getBoundingClientRect()
+          return (
+            <motion.div
+              key="drop-target"
+              className="fixed pointer-events-none z-[240]"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={TRANSITION.enter}
+              style={{
+                left: r.left,
+                top: r.top,
+                width: r.width,
+                height: r.height,
+                border: '2px solid var(--accent)',
+                borderRadius: 4,
+                boxShadow: 'inset 0 0 0 9999px var(--accent-dim)',
+              }}
+            />
+          )
+        })()}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {insertionLine && (
+          <motion.div
+            key="insertion-line"
+            className="fixed pointer-events-none z-[250]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: DURATION.instant, ease: EASE.standard }}
+            style={{
+              left: insertionLine.x,
+              top: insertionLine.y,
+              width: insertionLine.w,
+              height: insertionLine.h,
+              background: 'var(--accent)',
+              borderRadius: 1,
+              boxShadow: '0 0 4px var(--accent-border)',
             }}
           />
-        )
-      })()}
+        )}
+      </AnimatePresence>
 
-      {insertionLine && (
-        <div
-          className="fixed pointer-events-none z-[250]"
-          style={{
-            left: insertionLine.x,
-            top: insertionLine.y,
-            width: insertionLine.w,
-            height: insertionLine.h,
-            background: 'var(--accent)',
-            borderRadius: 1,
-            boxShadow: '0 0 4px var(--accent-border)',
-          }}
-        />
-      )}
-
-      {dimLabel && (
-        <div
-          className="fixed pointer-events-none z-[200]"
-          style={{
-            left: dimLabel.x,
-            top: dimLabel.y,
-            transform: 'translateX(-50%)',
-            background: 'var(--accent)',
-            color: 'var(--text-inverse)',
-            fontSize: 11,
-            fontWeight: 500,
-            padding: '2px 8px',
-            borderRadius: 4,
-            whiteSpace: 'nowrap',
-            fontVariantNumeric: 'tabular-nums',
-            letterSpacing: '0.01em',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
-          }}
-        >
-          {dimLabel.text}
-        </div>
-      )}
+      <AnimatePresence>
+        {dimLabel && (
+          <motion.div
+            key="dim-label"
+            className="fixed pointer-events-none z-[200]"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: DURATION.fast, ease: EASE.standard }}
+            style={{
+              left: dimLabel.x,
+              top: dimLabel.y,
+              transform: 'translateX(-50%)',
+              background: 'var(--accent)',
+              color: 'var(--text-inverse)',
+              fontSize: 11,
+              fontWeight: 500,
+              padding: '2px 8px',
+              borderRadius: 4,
+              whiteSpace: 'nowrap',
+              fontVariantNumeric: 'tabular-nums',
+              letterSpacing: '0.01em',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+            }}
+          >
+            {dimLabel.text}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   )
 }

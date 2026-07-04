@@ -2,10 +2,11 @@ import { Component } from 'lucide-react'
 
 interface Props {
   elementId: string
+  name: string
   scale?: number
 }
 
-export default function InstanceBadge({ elementId, scale = 1 }: Props) {
+export default function InstanceBadge({ elementId, name, scale = 1 }: Props) {
   const s = 1 / Math.max(scale, 0.1)
 
   return (
@@ -28,15 +29,16 @@ export default function InstanceBadge({ elementId, scale = 1 }: Props) {
         letterSpacing: '0.06em',
         textTransform: 'uppercase',
         color: 'var(--accent)',
-        pointerEvents: 'none',
+        pointerEvents: 'auto',
+        cursor: 'default',
         lineHeight: `${Math.round(12 * s)}px`,
-        opacity: 0,
-        transition: 'opacity 120ms ease',
         backdropFilter: 'blur(4px)',
+        transition: 'background var(--duration-normal) var(--ease-ui), border-color var(--duration-normal) var(--ease-ui)',
       }}
+      title={name}
     >
       <Component size={Math.round(8 * s)} strokeWidth={1.5} />
-      Instance
+      {name}
     </div>
   )
 }

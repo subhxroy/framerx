@@ -107,18 +107,22 @@
   --row-indent: 14px;
 
   /* Transitions — CSS mirror of src/lib/motionTokens.ts (keep in sync) */
-  --ease-ui: cubic-bezier(0.16, 1, 0.3, 1);        /* EASE.standard */
+  --ease-ui: cubic-bezier(0.32, 0.72, 0, 1);       /* EASE.standard */
   --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);   /* EASE.pop */
   --ease-enter: cubic-bezier(0, 0, 0.2, 1);        /* EASE.enter — decelerate in */
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);         /* EASE.exit — accelerate out */
-  --duration-instant: 80ms;   /* DURATION.instant — micro-feedback + exits */
-  --duration-fast: 80ms;      /* legacy alias (hover/small); == instant */
-  --duration-normal: 120ms;   /* DURATION.fast */
+  --duration-instant: 100ms;  /* DURATION.instant — press feedback + exits */
+  --duration-fast: 100ms;     /* legacy alias (hover/small); == instant */
+  --duration-normal: 150ms;   /* DURATION.fast */
   --duration-slow: 200ms;     /* DURATION.base */
   --duration-modal: 300ms;    /* DURATION.slow — larger surfaces */
 
   /* Interaction thresholds (px) — THRESHOLD.* in motionTokens.ts */
   --hit-resize-handle: 8px;   /* THRESHOLD.resizeHandleHitArea */
+
+  /* Smart-guide / measurement color — deliberately DISTINCT from the accent
+     blue so guides never blend with selection state (Framer-style magenta). */
+  --guide: #ff2d9b;
 }
 
 /* ─────────────────────────────────────────
@@ -217,8 +221,8 @@ select:focus {
 }
 
 .moveable-control-box .moveable-control:hover {
-  background: #0091ff !important;
-  border-color: #ffffff !important;
+  background: var(--accent) !important;
+  border-color: var(--text-primary) !important;
   transform: scale(1.15);
 }
 
@@ -258,9 +262,28 @@ select:focus {
    selection change (body.mv-gliding, toggled by SelectionManager) so it never
    lags during drag, resize, or canvas pan/zoom. */
 body.mv-gliding .moveable-control-box {
-  transition: transform var(--duration-normal) var(--ease-ui),
-              width var(--duration-normal) var(--ease-ui),
-              height var(--duration-normal) var(--ease-ui);
+  transition: all var(--duration-slow) var(--ease-ui) !important;
+}
+
+.moveable-control-box {
+  filter: drop-shadow(0 0 6px rgba(0, 145, 255, 0.25));
+}
+
+.moveable-line {
+  background: var(--selection) !important;
+}
+
+.moveable-control {
+  background: var(--selection) !important;
+  border: 2px solid var(--text-inverse) !important;
+  box-shadow: 0 0 4px rgba(0, 145, 255, 0.3) !important;
+}
+
+.moveable-direction.moveable-nw, .moveable-direction.moveable-ne,
+.moveable-direction.moveable-sw, .moveable-direction.moveable-se {
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 2px !important;
 }
 
 /* Handles fade in when a selection first appears (fresh Moveable mount). */
@@ -274,12 +297,12 @@ body.mv-gliding .moveable-control-box {
 .moveable-line.moveable-dashed,
 .moveable-line.moveable-guideline,
 .moveable-line.moveable-bold {
-  background: #ff2d9b !important;
+  background: var(--guide) !important;
 }
 
 .moveable-snap-digit,
 .moveable-snap-distance {
-  color: #ff2d9b !important;
+  color: var(--guide) !important;
   background: rgba(0, 0, 0, 0.9) !important;
   font-size: 9px !important;
   padding: 1px 4px !important;
@@ -334,7 +357,7 @@ body.mv-gliding .moveable-control-box {
 /* Batch-edit confirmation flash — a quick accent pulse on each element a
    multi-select edit touched, so a "Mixed"-field apply visibly lands. */
 [data-element-id].mv-flash {
-  animation: mv-flash-pulse 260ms var(--ease-ui);
+  animation: mv-flash-pulse var(--duration-modal) var(--ease-ui);
 }
 @keyframes mv-flash-pulse {
   0%   { box-shadow: 0 0 0 0 rgba(0, 145, 255, 0.0); }

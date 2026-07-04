@@ -58,6 +58,14 @@ export default function BorderRadiusSection() {
     }
   }, [el, isPerCorner, corners, uniform, pushHistory, applyChanges])
 
+  if (selectedIds.length > 1) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', color: 'var(--text-tertiary)', fontSize: 10 }}>
+        Editing {selectedIds.length} layers
+      </div>
+    )
+  }
+
   if (!el) return null
 
   return (

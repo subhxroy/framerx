@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { THRESHOLD } from '@/lib/motionTokens'
 
 interface Props {
   label: string
@@ -95,7 +96,11 @@ export default function NumberInput({
       //   default        → `step` units per px
       //   Shift          → 10× (coarse)
       //   Cmd/Ctrl       → 0.1× (fine)
-      const mult = e.shiftKey ? 10 : e.metaKey || e.ctrlKey ? 0.1 : 1
+      const mult = e.shiftKey
+        ? THRESHOLD.scrubMultiplierCoarse
+        : e.metaKey || e.ctrlKey
+          ? THRESHOLD.scrubMultiplierFine
+          : 1
       const raw = scrubStartValue.current + dx * step * mult
       // Snap fine drags to 0.1 and coarser drags to whole `step` increments.
       const quantum = mult < 1 ? step / 10 : step

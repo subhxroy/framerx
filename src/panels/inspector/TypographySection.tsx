@@ -75,6 +75,14 @@ export default function TypographySection() {
     ? GOOGLE_FONTS.filter(f => f.toLowerCase().includes(fontQuery.toLowerCase()))
     : GOOGLE_FONTS
 
+  if (selectedIds.length > 1) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', color: 'var(--text-tertiary)', fontSize: 10 }}>
+        Editing {selectedIds.length} layers
+      </div>
+    )
+  }
+
   if (!el || !t) return null
 
   const currentFont = (t as any).fontFamily || 'Inter'

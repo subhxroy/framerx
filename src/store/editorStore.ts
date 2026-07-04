@@ -31,6 +31,7 @@ export interface Element {
     blur?: number           // layer blur: filter: blur(Npx)
     backdropBlur?: number   // background blur: backdrop-filter: blur(Npx)
     strokeAlignment?: 'inside' | 'center' | 'outside'
+    borders?: BorderDef[]
     borderWidth?: number
     borderColor?: string
     borderStyle?: 'solid' | 'dashed' | 'dotted'
@@ -50,11 +51,11 @@ export interface Element {
   }
   autoLayout?: {
     enabled: boolean
-    direction: 'horizontal' | 'vertical'
+    direction: 'horizontal' | 'vertical' | 'horizontal-reverse' | 'vertical-reverse'
     gap: number
     padding: { top: number; right: number; bottom: number; left: number }
     alignItems: 'start' | 'center' | 'end' | 'stretch'
-    justifyContent: 'start' | 'center' | 'end' | 'space-between' | 'space-around'
+    justifyContent: 'start' | 'center' | 'end' | 'space-between' | 'space-around' | 'space-evenly'
     wrap: boolean
   }
   breakpoints?: {
@@ -74,12 +75,28 @@ export interface Element {
   activeVariant?: string
 }
 
+export interface BorderSideDef {
+  width: number
+  color: string
+  style: 'solid' | 'dashed' | 'dotted'
+}
+
+export interface BorderDef {
+  id: string
+  top: BorderSideDef
+  right: BorderSideDef
+  bottom: BorderSideDef
+  left: BorderSideDef
+  visible: boolean
+}
+
 export interface ShadowDef {
   x: number
   y: number
   blur: number
   spread: number
   color: string
+  inset?: boolean
 }
 
 export interface CMSBinding {
@@ -101,6 +118,7 @@ export interface ScrollLink {
   property: 'opacity' | 'y' | 'x' | 'scale' | 'rotate'
   scrollRange: [number, number]
   valueRange: [number, number]
+  easing?: 'linear' | 'easeIn' | 'easeOut' | 'easeInOut'
 }
 
 export interface Interaction {
@@ -149,6 +167,7 @@ interface EditorStore {
   rootElementIds: string[]
   selectedIds: string[]
   componentMasters: Record<string, string>
+  editingComponentId: string | null
   editingId: string | null
   activeTool: Tool
   activeBreakpoint: Breakpoint
@@ -159,6 +178,7 @@ interface EditorStore {
       elements: Record<string, Element>
       rootElementIds: string[]
       selectedIds: string[]
+      editingComponentId: string | null
       editingId: string | null
       timestamp: number
     }>
@@ -168,6 +188,10 @@ interface EditorStore {
   addElement: (element: Partial<Element>) => string
   addElementTree: (parts: Partial<Element>[], rootId: string) => string
   updateElement: (id: string, changes: Partial<Element>) => void
+  /** Batched multi-element update — ONE store set / render for N elements.
+   *  For simple property changes only (x/y/w/h/rotation etc.); does not
+   *  handle parentId/children re-wiring — use updateElement for those. */
+  updateElements: (changes: Record<string, Partial<Element>>) => void
   deleteElement: (id: string) => void
   duplicateElement: (id: string) => void
   moveElement: (id: string, x: number, y: number) => void
@@ -184,6 +208,7 @@ interface EditorStore {
   resetInstanceOverrides: (instanceId: string) => void
   detachInstance: (instanceId: string) => void
   setSelectedIds: (ids: string[]) => void
+  setEditingComponent: (id: string | null) => void
   setEditingId: (id: string | null) => void
   setActiveTool: (tool: Tool) => void
   setActiveBreakpoint: (breakpoint: Breakpoint) => void
@@ -273,6 +298,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   rootElementIds: [],
   selectedIds: [],
   componentMasters: {},
+  editingComponentId: null,
   editingId: null,
   activeTool: 'select',
   activeBreakpoint: 'desktop',
@@ -359,6 +385,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       const el = state.elements[id]
       if (!el) return state
       const elements = { ...state.elements }
+      let rootElementIds = state.rootElementIds
 
       // Handle parentId change
       if (changes.parentId !== undefined && changes.parentId !== el.parentId) {
@@ -373,6 +400,11 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
           }
         }
 
+        // If old parent was null, remove from rootElementIds
+        if (!oldParentId) {
+          rootElementIds = rootElementIds.filter((rid) => rid !== id)
+        }
+
         // Add to new parent's children (if valid)
         if (newParentId && elements[newParentId]) {
           if (!elements[newParentId].children.includes(id)) {
@@ -380,6 +412,13 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
               ...elements[newParentId],
               children: [...elements[newParentId].children, id],
             }
+          }
+        }
+
+        // If new parent is null, add to rootElementIds
+        if (!newParentId) {
+          if (!rootElementIds.includes(id)) {
+            rootElementIds = [...rootElementIds, id]
           }
         }
       }
@@ -405,7 +444,21 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       }
 
       elements[id] = { ...el, ...changes }
-      return { elements }
+      return { elements, rootElementIds }
+    })
+  },
+
+  updateElements: (changesById) => {
+    set((state) => {
+      let touched = false
+      const elements = { ...state.elements }
+      for (const [id, changes] of Object.entries(changesById)) {
+        const el = elements[id]
+        if (!el) continue
+        elements[id] = { ...el, ...changes }
+        touched = true
+      }
+      return touched ? { elements } : state
     })
   },
 
@@ -443,7 +496,12 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       const selectedIds = state.selectedIds.filter((sid) => !toRemove.has(sid))
       // If the element being edited was deleted, clear editingId
       const editingId = state.editingId && toRemove.has(state.editingId) ? null : state.editingId
-      return { elements, rootElementIds, selectedIds, editingId }
+      // Clean up componentMasters entries pointing to removed elements
+      const componentMasters = { ...state.componentMasters }
+      for (const [compId, elId] of Object.entries(componentMasters)) {
+        if (toRemove.has(elId)) delete componentMasters[compId]
+      }
+      return { elements, rootElementIds, selectedIds, editingId, componentMasters }
     })
   },
 
@@ -465,16 +523,25 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     set((s) => {
       const root = s.elements[newRootId]
       if (!root) return s
+      const elements = { ...s.elements }
+      // Offset root
+      elements[newRootId] = {
+        ...root,
+        name: el.name + ' Copy',
+        x: el.x + 20,
+        y: el.y + 20,
+      }
+      // Offset all descendants by (20, 20)
+      const offsetStack = [...root.children]
+      while (offsetStack.length) {
+        const cid = offsetStack.pop()!
+        const cel = elements[cid]
+        if (!cel) continue
+        elements[cid] = { ...cel, x: cel.x + 20, y: cel.y + 20 }
+        offsetStack.push(...cel.children)
+      }
       return {
-        elements: {
-          ...s.elements,
-          [newRootId]: {
-            ...root,
-            name: el.name + ' Copy',
-            x: el.x + 20,
-            y: el.y + 20,
-          },
-        },
+        elements,
         selectedIds: [newRootId],
       }
     })
@@ -628,6 +695,15 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     set((s) => {
       const elements = { ...s.elements }
       elements[elementId] = { ...elements[elementId], componentId }
+      // Recursively mark all descendants with componentId
+      const stack = [...(elements[elementId].children || [])]
+      while (stack.length) {
+        const childId = stack.pop()!
+        const child = elements[childId]
+        if (!child || child.componentId) continue
+        elements[childId] = { ...child, componentId }
+        stack.push(...(child.children || []))
+      }
       return {
         elements,
         componentMasters: { ...s.componentMasters, [componentId]: elementId },
@@ -719,6 +795,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   },
 
   setSelectedIds: (ids) => set({ selectedIds: ids }),
+  setEditingComponent: (id) => set({ editingComponentId: id, ...(id === null ? {} : {}) }),
   setEditingId: (id) => set({ editingId: id }),
   setActiveTool: (tool) => set({ activeTool: tool }),
   setActiveBreakpoint: (bp) => set({ activeBreakpoint: bp }),
@@ -737,6 +814,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         elements: JSON.parse(JSON.stringify(state.elements)),
         rootElementIds: [...state.rootElementIds],
         selectedIds: [...state.selectedIds],
+        editingComponentId: state.editingComponentId,
         editingId: state.editingId,
         timestamp: Date.now(),
       })
@@ -756,6 +834,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       elements: JSON.parse(JSON.stringify(entry.elements)),
       rootElementIds: [...entry.rootElementIds],
       selectedIds: [...entry.selectedIds],
+      editingComponentId: entry.editingComponentId ?? null,
       editingId: entry.editingId,
       history: { ...state.history, index },
     })
@@ -771,6 +850,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       elements: JSON.parse(JSON.stringify(entry.elements)),
       rootElementIds: [...entry.rootElementIds],
       selectedIds: [...entry.selectedIds],
+      editingComponentId: entry.editingComponentId ?? null,
       editingId: entry.editingId,
       history: { ...state.history, index },
     })

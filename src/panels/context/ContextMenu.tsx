@@ -1,10 +1,12 @@
 import { useEffect, useRef } from "react";
+import { motion } from 'motion/react'
+import { SPRING } from '@/lib/motionTokens'
 import { useEditorStore } from "@/store/editorStore";
 import type { Element } from "@/store/editorStore";
 import {
   Copy, ClipboardPaste, Trash2, CopyPlus,
   ArrowUp, ArrowDown, BringToFront, SendToBack,
-  Group, Ungroup, Palette, Unlink, ExternalLink,
+  Group, Ungroup, Palette, Unlink, ExternalLink, Component,
 } from "lucide-react";
 
 import { setClipboard, getClipboard } from "@/lib/clipboard";
@@ -206,8 +208,25 @@ export default function ContextMenu({ x, y, elementId, onClose }: Props) {
           },
         } as MenuItem]
       : []),
+    ...(canCreateComponent && target?.isInstance
+      ? [{ separator: true } as MenuItem]
+      : []),
     ...(target?.isInstance
       ? [
+          {
+            label: "Edit Component",
+            icon: <Component size={12} />,
+            action: () => {
+              const store = useEditorStore.getState();
+              const masterId = elements[elementId]?.masterId;
+              if (masterId) {
+                store.pushHistory();
+                store.setSelectedIds([masterId]);
+                store.setEditingComponent(masterId);
+              }
+              onClose();
+            },
+          } as MenuItem,
           {
             label: "Detach Instance",
             icon: <Unlink size={12} />,
@@ -269,8 +288,12 @@ export default function ContextMenu({ x, y, elementId, onClose }: Props) {
   const menuY = Math.min(y, window.innerHeight - 460);
 
   return (
-    <div
+    <motion.div
       ref={ref}
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={SPRING.chrome}
       className="fixed z-[100] rounded-lg overflow-hidden py-1"
       style={{
         left: menuX,
@@ -279,6 +302,7 @@ export default function ContextMenu({ x, y, elementId, onClose }: Props) {
         background: "var(--panel-bg)",
         border: "1px solid var(--panel-border)",
         boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+        transformOrigin: 'top left',
       }}
     >
       {menuItems.map((item, i) => {
@@ -307,6 +331,6 @@ export default function ContextMenu({ x, y, elementId, onClose }: Props) {
           </button>
         );
       })}
-    </div>
+    </motion.div>
   );
 }

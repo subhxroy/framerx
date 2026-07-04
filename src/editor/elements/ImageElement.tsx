@@ -1,3 +1,4 @@
+import { Image } from 'lucide-react'
 import type { Element } from '@/store/editorStore'
 import { getBorderRadiusCSS, getBoxShadowCSS } from '@/lib/elementStyle'
 
@@ -7,23 +8,29 @@ interface Props {
 
 export default function ImageElement({ element }: Props) {
   const img = element.image
-  if (!img) {
+  const noSrc = !img || !img.src
+  const radius = getBorderRadiusCSS(element.style)
+  const boxShadow = getBoxShadowCSS(element.style)
+
+  if (noSrc) {
     return (
       <div
-        className="flex items-center justify-center w-full h-full"
+        className="flex flex-col items-center justify-center w-full h-full gap-1"
         style={{
-          background: 'var(--surface-2)',
+          background: 'var(--accent-dim)',
           color: 'var(--text-muted)',
           fontSize: 11,
+          border: '1.5px dashed var(--accent-border)',
+          borderRadius: radius,
         }}
       >
-        Drop image or enter URL
+        <Image size={20} strokeWidth={1.5} />
+        <span>Drop image here</span>
       </div>
     )
   }
-  const radius = getBorderRadiusCSS(element.style)
-  const boxShadow = getBoxShadowCSS(element.style)
-  return img.src ? (
+
+  return (
     <img
       src={img.src}
       alt=""
@@ -37,16 +44,5 @@ export default function ImageElement({ element }: Props) {
         pointerEvents: 'none',
       }}
     />
-  ) : (
-    <div
-      className="flex items-center justify-center w-full h-full"
-      style={{
-        background: 'var(--surface-2)',
-        color: 'var(--text-muted)',
-        fontSize: 11,
-      }}
-    >
-      Drop image or enter URL
-    </div>
   )
 }

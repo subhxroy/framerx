@@ -28,6 +28,8 @@ interface Props {
   onToggleCollapse: (id: string) => void
   onRename: (id: string, name: string) => void
   hasChildren: boolean
+  isDropTarget?: boolean
+  isTargetParent?: boolean
 }
 
 export default function LayerRow({
@@ -41,6 +43,8 @@ export default function LayerRow({
   onToggleCollapse,
   onRename,
   hasChildren,
+  isDropTarget = false,
+  isTargetParent = false,
 }: Props) {
   const [editing, setEditing] = useState(false)
   const [name, setName]       = useState(element.name)
@@ -102,10 +106,14 @@ export default function LayerRow({
         gap: 4,
         background: isSelected
           ? 'var(--accent-bg)'
-          : hovered || hoveredFromCanvas ? 'rgba(255,255,255,0.03)' : 'transparent',
+          : isTargetParent
+            ? 'var(--accent-dim)'
+            : hovered || hoveredFromCanvas ? 'rgba(255,255,255,0.025)' : 'transparent',
         cursor: 'default',
         userSelect: 'none',
         borderRadius: 0,
+        borderLeft: isSelected ? '2px solid var(--accent)' : '2px solid transparent',
+        position: 'relative',
       }}
     >
       {/* Collapse toggle */}
@@ -237,6 +245,20 @@ export default function LayerRow({
           </button>
         )}
       </div>
+
+      {isDropTarget && (
+        <div style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 10 + depth * 14,
+          right: 4,
+          height: 2,
+          background: 'var(--accent)',
+          borderRadius: 1,
+          pointerEvents: 'none',
+          zIndex: 1,
+        }} />
+      )}
     </div>
   )
 }

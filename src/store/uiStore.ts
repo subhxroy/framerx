@@ -8,6 +8,8 @@ export const COPILOT_WIDTH = 360
 
 export type PanelTab = 'layers' | 'components' | 'assets' | 'cms' | 'copilot' | 'history' | 'transform'
 
+export type Guide = { type: 'horizontal' | 'vertical'; position: number }
+
 export type InspectorTab = 'style' | 'agent' | 'code'
 
 interface UIState {
@@ -23,6 +25,9 @@ interface UIState {
   setShowRuler: (v: boolean) => void
   rightPanelWidth: number
   setRightPanelWidth: (w: number) => void
+  guides: Guide[]
+  setGuides: (guides: Guide[]) => void
+  addGuide: (guide: Guide) => void
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -42,4 +47,7 @@ export const useUIStore = create<UIState>((set) => ({
   setShowRuler: (v) => set({ showRuler: v }),
   rightPanelWidth: RIGHT_DEFAULT,
   setRightPanelWidth: (w) => set({ rightPanelWidth: Math.max(RIGHT_MIN, Math.min(RIGHT_MAX, w)) }),
+  guides: [],
+  setGuides: (guides) => set({ guides }),
+  addGuide: (guide) => set((s) => ({ guides: [...s.guides, guide] })),
 }))

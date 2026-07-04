@@ -1,6 +1,8 @@
-import { type ReactNode, useRef, useEffect, useState } from 'react'
-import { motion, useScroll } from 'motion/react'
+import { type ReactNode, useRef, useCallback } from 'react'
+import { motion, useScroll, useTransform } from 'motion/react'
 import type { Interaction, ScrollLink } from '@/store/editorStore'
+import { useOverlayStore } from '@/store/overlayStore'
+import { SPRING } from '@/lib/motionTokens'
 
 interface VariantTrigger {
   trigger: 'hover' | 'tap'
@@ -52,30 +54,47 @@ export default function AnimatedElement({
   const hasInteractions = (interactions?.length ?? 0) > 0
   const hasVariantTriggers = (variantTriggers?.length ?? 0) > 0
   const hasScrollLinks = (scrollLinks?.length ?? 0) > 0 && previewMode
-  const needsLayout = previewMode && (isInAutoLayout || isAutoLayoutFrame)
+  // Layout (FLIP) animation is preview-only: in the editor, react-moveable
+  // drives transforms directly and Motion's layout projection would fight it.
+  const needsLayout = (isInAutoLayout || isAutoLayoutFrame) && !!previewMode
   const needsMotion = hasInteractions || hasVariantTriggers || hasScrollLinks || needsLayout
 
-  // Scroll-linked animation — tracks the element's progress through the viewport
-  // and maps it to style property values defined by each scrollLink.
-  const { scrollYProgress } = useScroll(
-    hasScrollLinks ? { target: elementRef, offset: ['start end', 'end start'] } : undefined
-  )
-  const [scrollStyle, setScrollStyle] = useState<Record<string, number>>({})
+  function applyEasing(t: number, easing?: ScrollLink['easing']): number {
+    if (!easing || easing === 'linear') return t
+    if (easing === 'easeOut') return 1 - Math.pow(1 - t, 3)
+    if (easing === 'easeIn') return t * t * t
+    if (easing === 'easeInOut') return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+    return t
+  }
 
-  useEffect(() => {
-    if (!hasScrollLinks || !scrollYProgress) return
-    const unsubscribe = scrollYProgress.on('change', (progress) => {
-      const next: Record<string, number> = {}
-      for (const link of scrollLinks!) {
-        const rangeLen = link.scrollRange[1] - link.scrollRange[0]
-        if (rangeLen === 0) continue
-        const t = Math.max(0, Math.min(1, (progress - link.scrollRange[0]) / rangeLen))
-        next[link.property] = link.valueRange[0] + (link.valueRange[1] - link.valueRange[0]) * t
-      }
-      setScrollStyle(next)
-    })
-    return unsubscribe
-  }, [scrollYProgress, scrollLinks, hasScrollLinks])
+  // Scroll-linked animation via Motion's useTransform — zero React re-renders
+  // during scroll because Motion handles MotionValue subscriptions natively.
+  const { scrollYProgress } = useScroll(
+    previewMode ? { target: elementRef, offset: ['start end', 'end start'] as const } : undefined
+  )
+
+  const computeScroll = useCallback(
+    (progress: number, prop: string): number | undefined => {
+      if (!hasScrollLinks || !scrollLinks) return undefined
+      const link = scrollLinks.find(l => l.property === prop)
+      if (!link) return undefined
+      const rangeLen = link.scrollRange[1] - link.scrollRange[0]
+      if (rangeLen === 0) return undefined
+      const t = Math.max(0, Math.min(1, (progress - link.scrollRange[0]) / rangeLen))
+      const easedT = applyEasing(t, link.easing)
+      return link.valueRange[0] + (link.valueRange[1] - link.valueRange[0]) * easedT
+    },
+    [scrollLinks, hasScrollLinks]
+  )
+
+  // Individual useTransform per property — always called at top level (Motion
+  // requirement). Each returns undefined (no-op via MotionValue) when no
+  // scrollLink uses that property, so they never override static style values.
+  const scrollOpacity = useTransform(scrollYProgress, (p: number) => computeScroll(p, 'opacity'))
+  const scrollX = useTransform(scrollYProgress, (p: number) => computeScroll(p, 'x'))
+  const scrollY = useTransform(scrollYProgress, (p: number) => computeScroll(p, 'y'))
+  const scrollScale = useTransform(scrollYProgress, (p: number) => computeScroll(p, 'scale'))
+  const scrollRotate = useTransform(scrollYProgress, (p: number) => computeScroll(p, 'rotate'))
 
   if (!needsMotion) {
     return (
@@ -125,16 +144,19 @@ export default function AnimatedElement({
   }
 
   if (needsLayout && !motionProps.transition) {
-    motionProps.transition = { type: 'spring', stiffness: 500, damping: 35 }
+    motionProps.transition = SPRING.content
   } else if (hasVariantTriggers && !motionProps.transition) {
-    motionProps.transition = { type: 'spring', stiffness: 500, damping: 30 }
+    motionProps.transition = SPRING.content
   }
 
   const actionInt = interactions?.find((i) => i.trigger === 'tap' && i.action)
   if (actionInt?.action) {
     motionProps.onTap = () => {
-      if (actionInt.action!.type === 'navigate' && actionInt.action!.url) {
-        window.open(actionInt.action!.url, '_blank')
+      const a = actionInt.action!
+      if (a.type === 'navigate' && a.url) {
+        window.open(a.url, '_blank')
+      } else if (a.type === 'overlay' && a.overlayId) {
+        useOverlayStore.getState().openOverlay(a.overlayId)
       }
     }
   }
@@ -143,7 +165,7 @@ export default function AnimatedElement({
     <motion.div
       ref={elementRef}
       className={className}
-      style={{ ...style, ...scrollStyle }}
+      style={{ ...style, opacity: scrollOpacity, x: scrollX, y: scrollY, scale: scrollScale, rotate: scrollRotate }}
       {...dataAttrs}
       {...motionProps}
     >

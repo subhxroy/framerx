@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useEditorStore } from '@/store/editorStore'
 import { isOverridden } from '@/lib/breakpointUtils'
+import { THRESHOLD } from '@/lib/motionTokens'
 
 interface Props {
   label: string
@@ -31,6 +32,9 @@ export default function RespNumberInput({
 }: Props) {
   const [local, setLocal] = useState(String(value))
   const [focused, setFocused] = useState(false)
+  const [scrubbing, setScrubbing] = useState(false)
+  const scrubStartX = useRef(0)
+  const scrubStartValue = useRef(0)
   const activeBreakpoint = useEditorStore((s) => s.activeBreakpoint)
   const elements = useEditorStore((s) => s.elements)
   const el = elements[elementId]
@@ -76,12 +80,59 @@ export default function RespNumberInput({
     [value, onChange, min, max, step, isDesktop, overridden, onAddOverride]
   )
 
-  const displayValue = focused ? local : (value === 0 ? '0' : String(Math.round(value * 100) / 100))
+  // Drag-to-scrub on the label — same behavior as NumberInput, with the
+  // breakpoint-override side effect applied on the first scrubbed change.
+  const handleLabelPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLLabelElement>) => {
+      e.preventDefault()
+      scrubStartX.current = e.clientX
+      scrubStartValue.current = value
+      setScrubbing(true)
+      ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+    },
+    [value]
+  )
+
+  const handleLabelPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLLabelElement>) => {
+      if (!scrubbing) return
+      const dx = e.clientX - scrubStartX.current
+      const mult = e.shiftKey
+        ? THRESHOLD.scrubMultiplierCoarse
+        : e.metaKey || e.ctrlKey
+          ? THRESHOLD.scrubMultiplierFine
+          : 1
+      const raw = scrubStartValue.current + dx * step * mult
+      const quantum = mult < 1 ? step / 10 : step
+      let v = Math.round(raw / quantum) * quantum
+      if (min !== undefined) v = Math.max(min, v)
+      if (max !== undefined) v = Math.min(max, v)
+      if (!isDesktop && !overridden) onAddOverride()
+      onChange(v)
+      setLocal(String(Math.round(v * 100) / 100))
+    },
+    [scrubbing, step, onChange, min, max, isDesktop, overridden, onAddOverride]
+  )
+
+  const handleLabelPointerUp = useCallback(() => setScrubbing(false), [])
+
+  const displayValue = focused || scrubbing ? local : (value === 0 ? '0' : String(Math.round(value * 100) / 100))
 
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between">
-        <label style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+        <label
+          style={{
+            fontSize: 'var(--text-sm)',
+            color: 'var(--text-secondary)',
+            cursor: 'ew-resize',
+            userSelect: 'none',
+          }}
+          onPointerDown={handleLabelPointerDown}
+          onPointerMove={handleLabelPointerMove}
+          onPointerUp={handleLabelPointerUp}
+          title={`${label}: drag to scrub`}
+        >
           {label}
         </label>
         {!isDesktop && (

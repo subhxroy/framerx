@@ -8,11 +8,16 @@ function hexToRgb(hex: string) {
     r: parseInt(h.substring(0, 2), 16) || 0,
     g: parseInt(h.substring(2, 4), 16) || 0,
     b: parseInt(h.substring(4, 6), 16) || 0,
+    a: h.length >= 8 ? Math.round((parseInt(h.substring(6, 8), 16) / 255) * 100) / 100 : 1,
   }
 }
 
-function rgbToHex(r: number, g: number, b: number) {
-  return '#' + [r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('')
+function rgbToHex(r: number, g: number, b: number, a?: number) {
+  const hex = '#' + [r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('')
+  if (a !== undefined && a < 1) {
+    return hex + Math.round(a * 255).toString(16).padStart(2, '0')
+  }
+  return hex
 }
 
 function hsvToRgb(h: number, s: number, v: number) {
@@ -51,7 +56,9 @@ export default function ColorPicker({ value, onChange, onClose, anchorEl }: Prop
   const [hue, setHue] = useState(initialHsv.h)
   const [sat, setSat] = useState(initialHsv.s)
   const [val, setVal] = useState(initialHsv.v)
-  const [hexInput, setHexInput] = useState((value || '#ffffff').replace('#', ''))
+  const initialAlpha = rgb.a !== undefined ? Math.round(rgb.a * 100) : 100
+  const [alpha, setAlpha] = useState(initialAlpha)
+  const [hexInput, setHexInput] = useState(((value || '#ffffff').replace('#', '')).slice(0, 6))
   const satRef = useRef<HTMLCanvasElement>(null)
   const hueRef = useRef<HTMLCanvasElement>(null)
   const dragging = useRef<'sat' | 'hue' | null>(null)
@@ -61,11 +68,12 @@ export default function ColorPicker({ value, onChange, onClose, anchorEl }: Prop
   const applyColor = useCallback(
     (h: number, s: number, v: number) => {
       const c = hsvToRgb(h, s, v)
-      const hex = rgbToHex(c.r, c.g, c.b)
-      setHexInput(hex.replace('#', ''))
+      const aVal = alpha / 100
+      const hex = rgbToHex(c.r, c.g, c.b, aVal < 1 ? aVal : undefined)
+      setHexInput(hex.replace('#', '').slice(0, 6))
       onChange(hex)
     },
-    [onChange]
+    [onChange, alpha]
   )
 
   const drawSat = useCallback(() => {
@@ -180,11 +188,24 @@ export default function ColorPicker({ value, onChange, onClose, anchorEl }: Prop
       setHue(hueVal)
       setSat(s)
       setVal(v)
+      const aVal = alpha / 100
+      const finalHex = aVal < 1 ? hex + Math.round(aVal * 255).toString(16).padStart(2, '0') : hex
+      onChange(finalHex)
+    } else if (/^[0-9a-fA-F]{8}$/.test(h)) {
+      const hex = '#' + h
+      const { r, g, b, a } = hexToRgb(hex)
+      const { h: hueVal, s, v } = rgbToHsv(r, g, b)
+      setHue(hueVal)
+      setSat(s)
+      setVal(v)
+      const newAlpha = a !== undefined ? Math.round(a * 100) : 100
+      setAlpha(newAlpha)
+      setHexInput(h.slice(0, 6))
       onChange(hex)
     } else {
-      setHexInput((value || '#ffffff').replace('#', ''))
+      setHexInput((value || '#ffffff').replace('#', '').slice(0, 6))
     }
-  }, [hexInput, onChange, value])
+  }, [hexInput, onChange, value, alpha])
 
   const addRecent = useCallback((hex: string) => {
     setRecent((prev) => {
@@ -207,6 +228,7 @@ export default function ColorPicker({ value, onChange, onClose, anchorEl }: Prop
       const { r, g, b } = hexToRgb(hex)
       const { h, s, v } = rgbToHsv(r, g, b)
       setHue(h); setSat(s); setVal(v)
+      setAlpha(100)
       setHexInput(hex.replace('#', ''))
       onChange(hex)
     } catch {
@@ -217,7 +239,9 @@ export default function ColorPicker({ value, onChange, onClose, anchorEl }: Prop
   }
 
   const c = hsvToRgb(hue, sat, val)
-  const currentHex = rgbToHex(c.r, c.g, c.b)
+  const aVal = alpha / 100
+  const currentHex = rgbToHex(c.r, c.g, c.b, aVal < 1 ? aVal : undefined)
+  const currentRgba = `rgba(${c.r},${c.g},${c.b},${aVal})`
 
   return (
     <Popover open anchorEl={anchorEl} onClose={onClose} placement="bottom" align="start">
@@ -251,18 +275,28 @@ export default function ColorPicker({ value, onChange, onClose, anchorEl }: Prop
             width: 24,
             height: 24,
             borderRadius: 'var(--radius-sm)',
-            background: currentHex,
-            border: '1px solid var(--border)',
             flexShrink: 0,
+            position: 'relative',
+            border: '1px solid var(--border)',
+            overflow: 'hidden',
           }}
-        />
+        >
+          <div style={{
+            position: 'absolute', inset: 0, borderRadius: 'inherit',
+            background: `repeating-conic-gradient(#333 0% 25%, transparent 0% 50%) 0 0 / 8px 8px`,
+          }} />
+          <div style={{
+            position: 'absolute', inset: 0, borderRadius: 'inherit',
+            background: currentRgba,
+          }} />
+        </div>
         <input
           type="text"
           value={hexInput}
           onChange={(e) => setHexInput(e.target.value)}
           onBlur={handleHexSubmit}
           onKeyDown={(e) => e.key === 'Enter' && handleHexSubmit()}
-          maxLength={6}
+          maxLength={8}
           style={{
             width: 72,
             height: 24,
@@ -281,7 +315,7 @@ export default function ColorPicker({ value, onChange, onClose, anchorEl }: Prop
           value={Math.round(c.r)}
           onChange={(e) => {
             const v = Math.max(0, Math.min(255, parseInt(e.target.value) || 0))
-            const hex = rgbToHex(v, c.g, c.b)
+            const hex = rgbToHex(v, c.g, c.b, aVal < 1 ? aVal : undefined)
             const { h, s, v: vv } = rgbToHsv(v, c.g, c.b)
             setHue(h); setSat(s); setVal(vv)
             onChange(hex)
@@ -306,7 +340,7 @@ export default function ColorPicker({ value, onChange, onClose, anchorEl }: Prop
           value={Math.round(c.g)}
           onChange={(e) => {
             const v = Math.max(0, Math.min(255, parseInt(e.target.value) || 0))
-            const hex = rgbToHex(c.r, v, c.b)
+            const hex = rgbToHex(c.r, v, c.b, aVal < 1 ? aVal : undefined)
             const { h, s, v: vv } = rgbToHsv(c.r, v, c.b)
             setHue(h); setSat(s); setVal(vv)
             onChange(hex)
@@ -331,7 +365,7 @@ export default function ColorPicker({ value, onChange, onClose, anchorEl }: Prop
           value={Math.round(c.b)}
           onChange={(e) => {
             const v = Math.max(0, Math.min(255, parseInt(e.target.value) || 0))
-            const hex = rgbToHex(c.r, c.g, v)
+            const hex = rgbToHex(c.r, c.g, v, aVal < 1 ? aVal : undefined)
             const { h, s, v: vv } = rgbToHsv(c.r, c.g, v)
             setHue(h); setSat(s); setVal(vv)
             onChange(hex)
@@ -371,17 +405,86 @@ export default function ColorPicker({ value, onChange, onClose, anchorEl }: Prop
           <Droplet size={13} />
         </button>
       </div>
+      <div className="flex items-center gap-2 mt-2">
+        <div
+          style={{
+            flex: 1,
+            height: 8,
+            borderRadius: 4,
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{
+            position: 'absolute', inset: 0, borderRadius: 4,
+            background: `repeating-conic-gradient(#333 0% 25%, transparent 0% 50%) 0 0 / 8px 8px`,
+          }} />
+          <div style={{
+            position: 'absolute', inset: 0, borderRadius: 4,
+            background: `linear-gradient(to right, rgba(${c.r},${c.g},${c.b},0), rgba(${c.r},${c.g},${c.b},1))`,
+          }} />
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={alpha}
+            onChange={(e) => {
+              const a = parseInt(e.target.value)
+              setAlpha(a)
+              const aVal = a / 100
+              const hex = rgbToHex(c.r, c.g, c.b, aVal < 1 ? aVal : undefined)
+              setHexInput(hex.replace('#', '').slice(0, 6))
+              onChange(hex)
+            }}
+            style={{
+              position: 'absolute', inset: 0,
+              width: '100%', height: '100%',
+              appearance: 'none', WebkitAppearance: 'none',
+              background: 'transparent', cursor: 'pointer', outline: 'none',
+              margin: 0, padding: 0,
+            }}
+          />
+        </div>
+        <input
+          type="number"
+          min={0}
+          max={100}
+          value={alpha}
+          onChange={(e) => {
+            const a = Math.max(0, Math.min(100, parseInt(e.target.value) || 0))
+            setAlpha(a)
+            const aVal = a / 100
+            const hex = rgbToHex(c.r, c.g, c.b, aVal < 1 ? aVal : undefined)
+            setHexInput(hex.replace('#', '').slice(0, 6))
+            onChange(hex)
+          }}
+          style={{
+            width: 36,
+            height: 24,
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-sm)',
+            color: 'var(--text-primary)',
+            fontSize: 'var(--text-base)',
+            padding: '0 2px',
+            outline: 'none',
+            textAlign: 'center',
+          }}
+        />
+      </div>
       {recent.length > 0 && (
         <div className="flex gap-1 mt-2 flex-wrap">
           {recent.map((hex) => (
             <button
               key={hex}
               onClick={() => {
-                const { r, g, b } = hexToRgb(hex)
+                const { r, g, b, a } = hexToRgb(hex)
                 const { h, s, v } = rgbToHsv(r, g, b)
                 setHue(h); setSat(s); setVal(v)
+                const newAlpha = a !== undefined ? Math.round(a * 100) : 100
+                setAlpha(newAlpha)
                 onChange(hex)
-                setHexInput(hex.replace('#', ''))
+                setHexInput(hex.replace('#', '').slice(0, 6))
               }}
               style={{
                 width: 16,

@@ -1,4 +1,5 @@
 import { useEditorStore } from '@/store/editorStore'
+import { getAbsolutePos } from '@/lib/coords'
 
 // Inline SVG icons to avoid lucide-react version issues
 const icons = {
@@ -73,34 +74,52 @@ export default function AlignmentBar() {
   const els = selectedIds.map(id => elements[id]).filter(Boolean)
   if (els.length < 2) return null
 
-  const minX = Math.min(...els.map(e => e.x))
-  const minY = Math.min(...els.map(e => e.y))
-  const maxX = Math.max(...els.map(e => e.x + e.width))
-  const maxY = Math.max(...els.map(e => e.y + e.height))
+  // Absolute positions for each element
+  const absPos = els.map(e => ({ ...getAbsolutePos(e.id, elements), w: e.width, h: e.height }))
+  const minX = Math.min(...absPos.map(p => p.x))
+  const minY = Math.min(...absPos.map(p => p.y))
+  const maxX = Math.max(...absPos.map(p => p.x + p.w))
+  const maxY = Math.max(...absPos.map(p => p.y + p.h))
   const totalW = maxX - minX
   const totalH = maxY - minY
 
-  const align = (fn: (e: typeof els[0]) => { x?: number; y?: number }) => {
+  /** Get parent's absolute position (0,0 if no parent). */
+  const getParentAbsPos = (el: typeof els[0]) =>
+    el.parentId ? getAbsolutePos(el.parentId, elements) : { x: 0, y: 0 }
+
+  const align = (fn: (e: typeof els[0], parentAbs: { x: number; y: number }) => { x?: number; y?: number }) => {
     pushHistory()
-    for (const el of els) updateElement(el.id, fn(el))
+    for (const el of els) {
+      const parentAbs = getParentAbsPos(el)
+      const delta = fn(el, parentAbs)
+      updateElement(el.id, delta)
+    }
   }
 
   const distributeH = () => {
     pushHistory()
-    const sorted = [...els].sort((a, b) => a.x - b.x)
+    const sorted = [...els].sort((a, b) => getAbsolutePos(a.id, elements).x - getAbsolutePos(b.id, elements).x)
     const totalElemW = sorted.reduce((s, e) => s + e.width, 0)
     const gap = (totalW - totalElemW) / Math.max(sorted.length - 1, 1)
     let cursor = minX
-    for (const el of sorted) { updateElement(el.id, { x: cursor }); cursor += el.width + gap }
+    for (const el of sorted) {
+      const parentAbs = getParentAbsPos(el)
+      updateElement(el.id, { x: cursor - parentAbs.x })
+      cursor += el.width + gap
+    }
   }
 
   const distributeV = () => {
     pushHistory()
-    const sorted = [...els].sort((a, b) => a.y - b.y)
+    const sorted = [...els].sort((a, b) => getAbsolutePos(a.id, elements).y - getAbsolutePos(b.id, elements).y)
     const totalElemH = sorted.reduce((s, e) => s + e.height, 0)
     const gap = (totalH - totalElemH) / Math.max(sorted.length - 1, 1)
     let cursor = minY
-    for (const el of sorted) { updateElement(el.id, { y: cursor }); cursor += el.height + gap }
+    for (const el of sorted) {
+      const parentAbs = getParentAbsPos(el)
+      updateElement(el.id, { y: cursor - parentAbs.y })
+      cursor += el.height + gap
+    }
   }
 
   const divider = <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 4px' }} />
@@ -112,16 +131,16 @@ export default function AlignmentBar() {
       borderRadius: 8, padding: '4px', gap: 4,
       boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
     }}>
-      <AlignBtn icon={icons.alignLeft}    title="Align left"        onClick={() => align(() => ({ x: minX }))} />
-      <AlignBtn icon={icons.alignCenterH} title="Align center H"    onClick={() => align(e => ({ x: minX + totalW / 2 - e.width / 2 }))} />
-      <AlignBtn icon={icons.alignRight}   title="Align right"       onClick={() => align(e => ({ x: maxX - e.width }))} />
+      <AlignBtn icon={icons.alignLeft}    title="Align left"   onClick={() => align((_e, pa) => ({ x: minX - pa.x }))} />
+      <AlignBtn icon={icons.alignCenterH} title="Align center H" onClick={() => align((e, pa) => ({ x: minX + totalW / 2 - e.width / 2 - pa.x }))} />
+      <AlignBtn icon={icons.alignRight}   title="Align right"  onClick={() => align((e, pa) => ({ x: maxX - e.width - pa.x }))} />
       {divider}
-      <AlignBtn icon={icons.alignTop}     title="Align top"         onClick={() => align(() => ({ y: minY }))} />
-      <AlignBtn icon={icons.alignCenterV} title="Align middle"      onClick={() => align(e => ({ y: minY + totalH / 2 - e.height / 2 }))} />
-      <AlignBtn icon={icons.alignBottom}  title="Align bottom"      onClick={() => align(e => ({ y: maxY - e.height }))} />
+      <AlignBtn icon={icons.alignTop}     title="Align top"    onClick={() => align((_e, pa) => ({ y: minY - pa.y }))} />
+      <AlignBtn icon={icons.alignCenterV} title="Align middle" onClick={() => align((e, pa) => ({ y: minY + totalH / 2 - e.height / 2 - pa.y }))} />
+      <AlignBtn icon={icons.alignBottom}  title="Align bottom" onClick={() => align((e, pa) => ({ y: maxY - e.height - pa.y }))} />
       {divider}
-      <AlignBtn icon={icons.distributeH}  title="Distribute H"      onClick={distributeH} />
-      <AlignBtn icon={icons.distributeV}  title="Distribute V"      onClick={distributeV} />
+      <AlignBtn icon={icons.distributeH}  title="Distribute H" onClick={distributeH} />
+      <AlignBtn icon={icons.distributeV}  title="Distribute V" onClick={distributeV} />
     </div>
   )
 }

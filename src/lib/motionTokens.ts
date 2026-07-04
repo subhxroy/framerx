@@ -1,37 +1,32 @@
 /**
  * motionTokens — the ONE source of truth for every timing, easing, spring,
- * delay and threshold used for interaction/animation anywhere in the app.
+ * delay and interaction threshold used anywhere in the app.
  *
- * No component should hardcode a duration, easing curve, delay or px
- * threshold. Import from here instead. The values below are *reconciled*
- * with the existing tuned tokens in `src/index.css` (--duration-*, --ease-*)
- * so nothing that already feels right changes — this file mirrors those and
- * adds the layers that were missing (springs, delays, thresholds, and the
- * asymmetric enter/exit curves premium UIs use).
+ * No component may hardcode a duration, easing curve, spring config, delay
+ * or px threshold. Import from here instead. `src/index.css` mirrors these
+ * as CSS variables (--ease-*, --duration-*) for pure-CSS transitions — if a
+ * value changes here, the CSS mirror must change with it.
  *
- * Convention: DURATION is in SECONDS (motion/react + the earlier spec use
- * seconds). DELAY/THRESHOLD are in ms/px (setTimeout + pointer math use those).
- * `toMs()` bridges to CSS/`transition:` strings.
+ * Convention: DURATION is in SECONDS (motion/react convention). DELAY and
+ * THRESHOLD are in ms/px (setTimeout + pointer math use those). `toMs()`
+ * bridges seconds → CSS `transition:` strings.
  */
 
 // ─────────────────────────────────────────────────────────────
 // EASING — cubic-bezier control points, [x1, y1, x2, y2]
 // ─────────────────────────────────────────────────────────────
 export const EASE = {
-  // The app's signature curve — identical to --ease-ui in index.css. A
-  // fast-out, gentle-settle decelerate that reads as "premium" rather than
-  // the mechanical feel of ease-in-out. Default for most UI transitions.
-  standard: [0.16, 1, 0.3, 1],
-  // Overshoot-and-settle — identical to --ease-pop. Use sparingly for
-  // playful pops (badges, tool confirmations), never for chrome/panels
-  // where bounce reads as "unstable UI".
+  // General UI transitions — fast start, long gentle settle. Reads as
+  // deliberate and "expensive" where symmetric ease-in-out reads robotic.
+  standard: [0.32, 0.72, 0, 1],
+  // Overshoot-and-settle for playful pops (badges, confirmations) only —
+  // never chrome/panels, where bounce reads as instability.
   pop: [0.34, 1.56, 0.64, 1],
-  // Elements ENTERING the screen (panels opening, popovers appearing):
-  // decelerate into place. Pairs with DURATION.fast/base.
+  // Things APPEARING (panels, popovers): pure decelerate into place, so the
+  // element arrives softly instead of stopping abruptly.
   enter: [0, 0, 0.2, 1],
-  // Elements LEAVING (panels closing, popovers dismissing): accelerate out.
-  // Exits should be faster than entrances — a universal UX rule most apps
-  // get wrong with symmetric timing. Pair with DURATION.instant.
+  // Things DISAPPEARING: accelerate out. Exits must be faster than the
+  // matching entrance — lingering exits read as lag, not elegance.
   exit: [0.4, 0, 1, 1],
 } as const
 
@@ -39,52 +34,74 @@ export const EASE = {
 // DURATION — seconds (motion/react convention)
 // ─────────────────────────────────────────────────────────────
 export const DURATION = {
-  instant: 0.08, // 80ms — micro-feedback: button press, checkbox toggle, exits.
-  //                 Mirrors --duration-fast; kept snappy so presses feel tactile.
-  fast: 0.12, //    120ms — hover states, small UI transitions. Mirrors --duration-normal.
-  base: 0.2, //     200ms — default for most UI (panels, dropdowns). Mirrors --duration-slow.
-  slow: 0.3, //     300ms — larger surfaces (modal open, page transition). Long enough
-  //                 to read as a deliberate surface change, short enough to stay responsive.
-  layout: 0.35, //  350ms — auto-layout FLIP reflow. Slightly longer because layout shifts
-  //                 move more pixels; matches the perceived settle of SPRING.snappy on content.
+  instant: 0.1, //  100ms — press feedback, checkbox toggles: fast enough to feel
+  //                 tactile, slow enough that the change is actually visible.
+  fast: 0.15, //    150ms — hover states, small transitions: under the ~200ms
+  //                 threshold where users start perceiving "animation" vs "response".
+  base: 0.2, //     200ms — default panel/dropdown transitions: the sweet spot
+  //                 between abrupt and sluggish for mid-size surfaces.
+  slow: 0.3, //     300ms — modals, larger surface transitions: bigger surfaces
+  //                 need more time to read as moving, not teleporting.
+  layout: 0.35, //  350ms — auto-layout FLIP reflow: layout shifts move more pixels,
+  //                 so slightly longer matches the perceived settle of SPRING.content.
+  stagger: 0.04, // 40ms — per-item stagger for panel content entering after its
+  //                 container: enough to read as a cascade, not enough to feel slow.
 } as const
 
 // ─────────────────────────────────────────────────────────────
 // SPRING — physics configs for motion/react `type: 'spring'`
 // ─────────────────────────────────────────────────────────────
 export const SPRING = {
-  // CANVAS / CONTENT default. Matches AnimatedElement.tsx so authored content
-  // and system-driven canvas motion (selection glide) feel like one system.
-  // Snappy with a barely-perceptible settle — energetic without wobbling.
-  snappy: { type: 'spring', stiffness: 500, damping: 30, mass: 1 } as const,
-  // UI CHROME default — panels, popovers, tooltips. Tighter/less bouncy than
-  // canvas content, because chrome overshoot reads as "unstable UI" rather
-  // than "playful content".
-  ui: { type: 'spring', stiffness: 380, damping: 32, mass: 0.8 } as const,
+  // Canvas CONTENT default — element animations, layout transitions, anything
+  // ON the design surface. Energetic with a barely-perceptible settle: high
+  // stiffness snaps to target, damping 30 stops it from wobbling.
+  content: { type: 'spring', stiffness: 500, damping: 30, mass: 1 } as const,
+  // UI CHROME default — panels, popovers, selection handles. Tighter and less
+  // bouncy than content (lower mass, higher relative damping) because chrome
+  // bounce reads as instability rather than playfulness.
+  chrome: { type: 'spring', stiffness: 380, damping: 32, mass: 0.8 } as const,
+} as const
+
+export const SPRING_PRESETS = {
+  // Exposed to users in the Inspector's animation controls.
+  // Matches SPRING.content — the app's own canvas default, so "Snappy" is
+  // also "what the tool itself feels like".
+  snappy: { stiffness: 500, damping: 30, mass: 1 },
+  // Lower stiffness = slower approach; damping 25 keeps it overshoot-free —
+  // the "gentle glide" option.
+  smooth: { stiffness: 200, damping: 25, mass: 1 },
+  // Deliberately underdamped (damping 12) so it visibly oscillates before
+  // settling — the only preset where overshoot is the point.
+  bouncy: { stiffness: 400, damping: 12, mass: 1 },
 } as const
 
 // ─────────────────────────────────────────────────────────────
 // DELAY — milliseconds (setTimeout)
 // ─────────────────────────────────────────────────────────────
 export const DELAY = {
-  tooltipShow: 400, // ms before a tooltip appears on hover — faster feels twitchy,
-  //                    slower feels unresponsive.
-  tooltipHide: 0, //   tooltips disappear instantly; lingering reads as laggy.
-  hoverIntent: 60, //  ms of continuous hover before a hover-state UI change fires.
-  //                    Prevents outline strobing when the mouse sweeps a dense canvas.
+  tooltipShow: 400, // ms before a tooltip appears — faster feels twitchy on
+  //                    incidental hovers, slower feels unresponsive when sought.
+  tooltipHide: 0, //   tooltips vanish instantly; a lingering tooltip reads as lag.
+  hoverIntent: 60, //  ms of sustained hover before a hover-state UI change fires —
+  //                    prevents outline strobing when the mouse sweeps a dense canvas.
 } as const
 
 // ─────────────────────────────────────────────────────────────
-// THRESHOLD — pixels / milliseconds
+// THRESHOLD — pixels / milliseconds / multipliers
 // ─────────────────────────────────────────────────────────────
 export const THRESHOLD = {
-  dragStart: 4, //          px of movement before a mousedown becomes a drag rather
-  //                          than a click — without it, clicks nudge elements by 1px
-  //                          and feel broken.
-  snapDistance: 6, //       px tolerance for smart-guide snapping.
-  resizeHandleHitArea: 8, // px — visible handle can be 8×8 but the hit area extends
-  //                          this far past it so resizing never feels fiddly.
-  doubleClickWindow: 300, // ms between clicks to register as a double-click.
+  dragStart: 4, //          px before a mousedown becomes a drag — without it, plain
+  //                          clicks nudge elements by a pixel and feel broken.
+  snapDistance: 6, //       px tolerance for smart-guide snapping — close enough to
+  //                          feel magnetic, far enough not to fight free placement.
+  resizeHandleHitArea: 8, // px invisible padding beyond the visible handle so
+  //                          grabbing a resize handle never feels fiddly.
+  doubleClickWindow: 300, // ms between clicks to register a double-click — the
+  //                          OS-conventional default users' muscle memory expects.
+  scrubMultiplierFine: 0.1, //  Cmd/Ctrl held while drag-scrubbing a value — 10x
+  //                             precision for dialing in exact pixel values.
+  scrubMultiplierCoarse: 10, // Shift held while drag-scrubbing — 10x speed for
+  //                             covering large ranges without repeated drags.
 } as const
 
 // ─────────────────────────────────────────────────────────────
@@ -107,8 +124,8 @@ export const TRANSITION = {
   enter: { duration: DURATION.fast, ease: EASE.enter },
   exit: { duration: DURATION.instant, ease: EASE.exit },
   press: { duration: DURATION.instant, ease: EASE.standard },
-  springUi: SPRING.ui,
-  springSnappy: SPRING.snappy,
+  springChrome: SPRING.chrome,
+  springContent: SPRING.content,
 } as const
 
 /**
@@ -130,3 +147,4 @@ export const TOAST_MOTION = {
 } as const
 
 export type SpringConfig = (typeof SPRING)[keyof typeof SPRING]
+export type SpringPresetName = keyof typeof SPRING_PRESETS
