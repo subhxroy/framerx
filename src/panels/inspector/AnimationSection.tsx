@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useEditorStore, type Interaction } from '@/store/editorStore'
-import { DURATION, SPRING, SPRING_PRESETS } from '@/lib/motionTokens'
+import { SPRING, SPRING_PRESETS } from '@/lib/motionTokens'
 
 interface Props {
   elementId: string
@@ -73,7 +73,7 @@ export default function AnimationSection({ elementId }: Props) {
         opacity: [1, 1],
         scale: [1, 1],
       },
-      transition: { type: 'tween', duration: DURATION.base, easing: 'ease-out' },
+      transition: { type: 'spring', stiffness: 500, damping: 30, mass: 1 },
     }
     const current = element?.interactions ?? []
     updateElement(elementId, { interactions: [...current, newInt] })
@@ -289,7 +289,7 @@ export default function AnimationSection({ elementId }: Props) {
                   cursor: 'pointer',
                   fontFamily: 'inherit',
                 }}
-                value={int.transition?.type ?? 'tween'}
+                value={int.transition?.type ?? 'spring'}
                 onChange={(e) =>
                   updateInteraction(int.id, {
                     transition: {
