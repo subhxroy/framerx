@@ -137,11 +137,6 @@ export default function AnimatedElement({
     }
   }
 
-  // If interactions are defined but lack a transition, default to spring physics
-  if (Object.keys(motionProps).length > 0 && !motionProps.transition && hasInteractions) {
-    motionProps.transition = SPRING.content
-  }
-
   const transitionInt = interactions?.find((i) => i.transition)
   if (transitionInt?.transition && Object.keys(motionProps).length > 0) {
     const { easing: _easing, ...rest } = transitionInt.transition
